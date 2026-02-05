@@ -1,0 +1,18 @@
+<?xml version='1.0' encoding='utf-8'?>
+<dublin_core xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <title>Simple Government Records Collection</title>
+  <creator>Government Department XYZ</creator>
+  <subject>Administrative records, correspondence, reports</subject>
+  <description>Collection of administrative documents for digital preservation</description>
+  <publisher>National Archive Institution</publisher>
+  <contributor>Records Management Team</contributor>
+  <date>2025-06-17T10:30:00Z</date>
+  <type>Collection</type>
+  <format>Digital documents (PDF, DOCX)</format>
+  <identifier>SIMPLE_COLLECTION_001</identifier>
+  <source>Department Records Management System</source>
+  <language>en</language>
+  <relation>Part of digital preservation initiative</relation>
+  <coverage>Government operations 2020-2024</coverage>
+  <rights>Public domain after review period</rights>
+</dublin_core>

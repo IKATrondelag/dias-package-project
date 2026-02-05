@@ -1,0 +1,29 @@
+# Development dependencies
+# Install with: pip install -r requirements-dev.txt
+
+# Include production dependencies
+-r requirements.txt
+
+# Testing
+pytest>=7.4.0
+pytest-cov>=4.1.0
+pytest-xdist>=3.5.0     # Parallel test execution
+
+# Code quality
+flake8>=6.1.0
+pylint>=3.0.0
+mypy>=1.8.0
+
+# Security
+bandit>=1.7.0
+pip-audit>=2.6.0
+
+# Pre-commit hooks
+pre-commit>=3.6.0
+
+# Documentation
+mkdocs>=1.5.0           # Optional: for generating docs
+mkdocs-material>=9.5.0  # Optional: nice theme
+
+# Type stubs
+types-PyYAML>=6.0.0

@@ -1,0 +1,47 @@
+# Codecov configuration
+# https://docs.codecov.io/docs/codecov-yaml
+
+coverage:
+  precision: 2
+  round: down
+  range: "25...80"
+  
+  status:
+    project:
+      default:
+        target: 25%
+        threshold: 2%
+        informational: false
+    patch:
+      default:
+        target: 50%
+        threshold: 5%
+        informational: true  # Don't fail PRs for patch coverage
+
+parsers:
+  gcov:
+    branch_detection:
+      conditional: yes
+      loop: yes
+      method: no
+      macro: no
+
+comment:
+  layout: "reach,diff,flags,files"
+  behavior: default
+  require_changes: true
+  require_base: false
+  require_head: true
+
+ignore:
+  - "tests/**/*"
+  - "**/__pycache__/**"
+  - "**/site-packages/**"
+  - "build/**"
+  - "dist/**"
+
+flags:
+  unittests:
+    paths:
+      - src/
+    carryforward: true

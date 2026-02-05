@@ -1,0 +1,105 @@
+# DIAS Package Creator - Default Metadata Configuration
+# This file provides default values for the package creation form.
+# Copy this file to 'dias_config.yml' to use it.
+# All fields are optional.
+
+version: '1.0'
+description: 'Default metadata configuration for DIAS packages'
+
+metadata:
+  # Package Information
+  package_type: 'SIP'
+  record_status: 'NEW'
+  
+  # Archivist Information
+  archivist_organization: '9999 Kommune Eksempel'
+  system_name: 'Eksempel System A'
+  system_version: '1.0'
+  system_format: 'SIARD'
+  
+  # Creator Information
+  creator_organization: '9995 Kommune Eksempel 0'
+  
+  # Producer Information
+  producer_organization: 'Eksempel IKT'
+  producer_individual: ''
+  producer_software: 'Eksempel Programvare'
+  
+  # Submitter Information
+  submitter_organization: '9999 Kommune Eksempel'
+  submitter_individual: 'Arkivleder Eksempel'
+  
+  # IP Owner & Preservation
+  ipowner_organization: '9999 Kommune Eksempel'
+  preservation_organization: 'Nasjonalarkivet'
+  
+  # Agreement & Date Range (ISO format: YYYY-MM-DD)
+  submission_agreement: ''
+  start_date: '2000-01-01'
+  end_date: '2023-12-31'
+  
+  # Optional: Label template
+  # label: 'Package Label'
+
+# Dropdown Options
+# Define custom options for dropdown fields
+# These will be shown in addition to or instead of the default options
+options:
+  # Organizations - customize with your common municipalities/organizations
+  archivist_organization:
+    - '9997 Kommune Eksempel A'
+    - '9998 Kommune Eksempel B'
+    - '9999 Kommune Eksempel C'
+  
+  submitter_organization:
+    - '9997 Kommune Eksempel A'
+    - '9998 Kommune Eksempel B'
+    - '9999 Kommune Eksempel C'
+  
+  ipowner_organization:
+    - '9997 Kommune Eksempel A'
+    - '9998 Kommune Eksempel B'
+    - '9999 Kommune Eksempel C'
+  
+  # Creator organizations (IKA)
+  creator_organization:
+    - '9997 Kommune Eksempel A'
+    - '9998 Kommune Eksempel B'
+    - '9999 Kommune Eksempel C'
+  
+  # Producer organizations
+  producer_organization:
+    - 'Fosen IKT'
+    - 'KommIT'
+    - 'Evry'
+    - 'Visma'
+  
+  # System names
+  system_name:
+    - 'Eksempel System A'
+    - 'Eksempel System B'
+    - 'Eksempel System C'
+  
+  # Software versions
+  system_version:
+    - '1.0'
+    - '2.0'
+    - '3.0'
+  
+  # Content formats
+  system_format:
+    - 'SIARD'
+    - 'ADDML'
+    - 'NOARK-5'
+    - 'JSON'
+  
+  # Producer software
+  producer_software:
+    - 'Eksempel Programvare A'
+    - 'Eksempel Programvare B'
+    - 'Eksempel Programvare C'  
+  
+  # Preservation organizations
+  preservation_organization:
+    - 'Nasjonalarkivet'
+    - 'Nasjonalbiblioteket'

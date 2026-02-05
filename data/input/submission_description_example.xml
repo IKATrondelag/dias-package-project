@@ -1,0 +1,161 @@
+<?xml version='1.0' encoding='utf-8'?>
+<mets xmlns="http://www.loc.gov/METS/" 
+      xmlns:xlink="http://www.w3.org/1999/xlink" 
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="http://www.loc.gov/METS/ submissionDescription.xsd"
+      OBJID="EXAMPLE_SUBMISSION_2025_001"
+      TYPE="SIP"
+      PROFILE="DIAS_SUBMISSION_DESCRIPTION"
+      LABEL="Example Government Records Submission">
+  
+  <metsHdr CREATEDATE="2025-06-17T10:30:00Z" RECORDSTATUS="NEW">
+    
+    <!-- Required: At least 3 agents -->
+    <agent ROLE="CREATOR" TYPE="ORGANIZATION">
+      <name>Government Records Management System</name>
+      <note>System that created the original records</note>
+    </agent>
+    
+    <agent ROLE="ARCHIVIST" TYPE="ORGANIZATION">
+      <name>National Archives of Example Country</name>
+      <note>Institution responsible for long-term preservation</note>
+    </agent>
+    
+    <agent ROLE="OTHER" OTHERROLE="SUBMITTER" TYPE="INDIVIDUAL">
+      <name>Jane Smith</name>
+      <note>Records Manager responsible for the submission</note>
+    </agent>
+    
+    <agent ROLE="OTHER" OTHERROLE="PRODUCER" TYPE="ORGANIZATION">
+      <name>Ministry of Example Affairs</name>
+      <note>Government department that produced the records</note>
+    </agent>
+    
+    <!-- Required: At least 1 altRecordID for submission agreement -->
+    <altRecordID TYPE="SUBMISSIONAGREEMENT">SA_2025_GOV_RECORDS_001</altRecordID>
+    <altRecordID TYPE="DELIVERYTYPE">ELECTRONIC_TRANSFER</altRecordID>
+    <altRecordID TYPE="DELIVERYSPECIFICATION">DIAS_SPEC_V2.1</altRecordID>
+    <altRecordID TYPE="PACKAGENUMBER">PKG_GOV_2025_001</altRecordID>
+    <altRecordID TYPE="REFERENCECODE">REF_MINISTRY_2025_001</altRecordID>
+    <altRecordID TYPE="STARTDATE">2020-01-01</altRecordID>
+    <altRecordID TYPE="ENDDATE">2024-12-31</altRecordID>
+    <altRecordID TYPE="INFORMATIONCLASS">CONFIDENTIAL</altRecordID>
+    <altRecordID TYPE="SYSTEMTYPE">RECORDS_MANAGEMENT</altRecordID>
+    
+    <metsDocumentID TYPE="UUID">12345678-1234-5678-9012-123456789012</metsDocumentID>
+  </metsHdr>
+  
+  <!-- Descriptive metadata -->
+  <dmdSec ID="DMD_001">
+    <mdWrap MDTYPE="DC">
+      <xmlData>
+        <title>Ministry of Example Affairs Records Collection 2020-2024</title>
+        <creator>Ministry of Example Affairs</creator>
+        <subject>Government records, administrative documents, policy files</subject>
+        <description>Complete collection of administrative records from the Ministry of Example Affairs covering the period 2020-2024, including policy documents, correspondence, and administrative files for long-term preservation and public access.</description>
+        <publisher>National Archives of Example Country</publisher>
+        <contributor>Records Management Department</contributor>
+        <date>2025-06-17T10:30:00Z</date>
+        <type>Collection</type>
+        <format>Mixed digital formats (PDF, DOCX, XLSX, emails)</format>
+        <identifier>EXAMPLE_SUBMISSION_2025_001</identifier>
+        <source>Ministry of Example Affairs Records Management System v3.2</source>
+        <language>en</language>
+        <relation>Part of Government Records Preservation Program</relation>
+        <coverage>2020-2024, Ministry of Example Affairs operations</coverage>
+        <rights>Government records subject to Freedom of Information Act after 30-year closure period</rights>
+      </xmlData>
+    </mdWrap>
+  </dmdSec>
+  
+  <!-- Administrative metadata -->
+  <amdSec ID="AMD_001">
+    <techMD ID="TECH_001">
+      <mdWrap MDTYPE="OTHER" OTHERMDTYPE="ADDML">
+        <xmlData>
+          <technical_info>
+            <software_version>DIAS_Creator_v1.0</software_version>
+            <creation_date>2025-06-17T10:30:00Z</creation_date>
+            <validation_status>PASSED</validation_status>
+            <total_files>1247</total_files>
+            <total_size_bytes>2147483648</total_size_bytes>
+            <file_formats>
+              <format name="PDF" count="856" />
+              <format name="DOCX" count="234" />
+              <format name="XLSX" count="123" />
+              <format name="MSG" count="34" />
+            </file_formats>
+          </technical_info>
+        </xmlData>
+      </mdWrap>
+    </techMD>
+  </amdSec>
+  
+  <!-- File section -->
+  <fileSec>
+    <fileGrp ID="FILES_DOCUMENTS" USE="SUBMISSION">
+      <file ID="FILE_001" 
+            MIMETYPE="application/pdf" 
+            SIZE="2048576" 
+            CREATED="2024-03-15T09:30:00Z" 
+            USE="DATA"
+            CHECKSUM="a1b2c3d4e5f67890abcdef1234567890"
+            CHECKSUMTYPE="MD5">
+        <FLocat LOCTYPE="URL" xlink:href="documents/policy/annual_report_2024.pdf"/>
+      </file>
+      
+      <file ID="FILE_002" 
+            MIMETYPE="application/vnd.openxmlformats-officedocument.wordprocessingml.document" 
+            SIZE="1024000" 
+            CREATED="2024-02-20T14:15:00Z" 
+            USE="DATA"
+            CHECKSUM="b2c3d4e5f67890abcdef1234567890a1"
+            CHECKSUMTYPE="SHA-256">
+        <FLocat LOCTYPE="URL" xlink:href="documents/admin/meeting_minutes_2024_02.docx"/>
+      </file>
+      
+      <file ID="FILE_003" 
+            MIMETYPE="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" 
+            SIZE="512000" 
+            CREATED="2024-01-10T11:45:00Z" 
+            USE="DATA"
+            CHECKSUM="c3d4e5f67890abcdef1234567890a1b2"
+            CHECKSUMTYPE="MD5">
+        <FLocat LOCTYPE="URL" xlink:href="documents/finance/budget_2024.xlsx"/>
+      </file>
+    </fileGrp>
+    
+    <fileGrp ID="FILES_METADATA" USE="METADATA">
+      <file ID="METADATA_001" 
+            MIMETYPE="application/xml" 
+            SIZE="4096" 
+            CREATED="2025-06-17T10:30:00Z" 
+            USE="METADATA"
+            CHECKSUM="d4e5f67890abcdef1234567890a1b2c3"
+            CHECKSUMTYPE="SHA-256">
+        <FLocat LOCTYPE="URL" xlink:href="metadata/collection_metadata.xml"/>
+      </file>
+    </fileGrp>
+  </fileSec>
+  
+  <!-- Structural map -->
+  <structMap TYPE="physical">
+    <div TYPE="submission" LABEL="Ministry Records Submission Package">
+      <div TYPE="documents" LABEL="Document Files">
+        <div TYPE="policy" LABEL="Policy Documents">
+          <fptr FILEID="FILE_001"/>
+        </div>
+        <div TYPE="administrative" LABEL="Administrative Records">
+          <fptr FILEID="FILE_002"/>
+        </div>
+        <div TYPE="financial" LABEL="Financial Records">
+          <fptr FILEID="FILE_003"/>
+        </div>
+      </div>
+      <div TYPE="metadata" LABEL="Metadata Files">
+        <fptr FILEID="METADATA_001"/>
+      </div>
+    </div>
+  </structMap>
+  
+</mets>

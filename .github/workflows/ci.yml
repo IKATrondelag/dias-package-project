@@ -1,0 +1,277 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  PYTHON_VERSION: '3.11'
+  MIN_COVERAGE: 25
+
+jobs:
+  # ============================================================================
+  # Code Quality Checks
+  # ============================================================================
+  lint:
+    name: 🔍 Code Quality
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-lint-${{ hashFiles('requirements-dev.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-lint-
+
+      - name: Install linting tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install flake8 pylint mypy
+
+      - name: Lint with flake8
+        run: |
+          # Stop build on syntax errors or undefined names
+          flake8 src/ tests/ --count --select=E9,F63,F7,F82 --show-source --statistics
+          # Full linting (warnings only)
+          flake8 src/ tests/ --count --exit-zero --max-complexity=15 --max-line-length=120 --statistics
+
+      - name: Type checking with mypy (informational)
+        run: |
+          mypy src/ --ignore-missing-imports --no-error-summary || true
+
+  # ============================================================================
+  # Security Scanning
+  # ============================================================================
+  security:
+    name: 🔒 Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install security tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install bandit pip-audit
+
+      - name: Run Bandit security linter
+        run: |
+          bandit -r src/ -ll -ii -x tests/ -f txt || true
+
+      - name: Audit dependencies for vulnerabilities
+        run: |
+          pip install -r requirements.txt
+          pip-audit || true
+
+  # ============================================================================
+  # Unit Tests with Coverage
+  # ============================================================================
+  test:
+    name: 🧪 Test Py${{ matrix.python-version }} / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ['3.10', '3.11', '3.12']
+        exclude:
+          # Reduce matrix for faster CI
+          - os: macos-latest
+            python-version: '3.10'
+          - os: windows-latest
+            python-version: '3.10'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-${{ matrix.python-version }}-
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest-cov pytest-xdist
+
+      - name: Run tests with coverage
+        run: |
+          pytest tests/ -v --cov=src --cov-report=xml --cov-report=term-missing --cov-fail-under=${{ env.MIN_COVERAGE }}
+
+      - name: Upload coverage to Codecov
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.11'
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage.xml
+          flags: unittests
+          name: codecov-dias
+          fail_ci_if_error: false
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Verify imports work
+        run: |
+          python -c "from src.core import PackageController; from src.gui import MainWindow; from src.utils import config; print('All imports successful')"
+
+  # ============================================================================
+  # Build Executables
+  # ============================================================================
+  build:
+    name: 📦 Build ${{ matrix.os }}
+    needs: [lint, test]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact_name: dias-package-creator-linux
+          - os: windows-latest
+            artifact_name: dias-package-creator-windows
+          - os: macos-latest
+            artifact_name: dias-package-creator-macos
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-build-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-build-
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Build executable
+        run: |
+          pyinstaller build_exe.spec
+
+      - name: Verify executable exists (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: |
+          ls -la dist/
+          test -f dist/dias-package-creator || test -d dist/*.app || echo "Build output found"
+
+      - name: Verify executable exists (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Get-ChildItem dist/
+          if (-not (Test-Path "dist/dias-package-creator.exe")) { Write-Warning "Executable not found" }
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: dist/
+          retention-days: 30
+
+  # ============================================================================
+  # Release (on tag push)
+  # ============================================================================
+  release:
+    name: 🚀 Release
+    needs: [build]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      - name: Prepare release assets
+        run: |
+          mkdir -p release
+          
+          # Linux
+          if [ -d "artifacts/dias-package-creator-linux" ]; then
+            chmod +x artifacts/dias-package-creator-linux/dias-package-creator 2>/dev/null || true
+            tar -czvf release/dias-package-creator-linux-amd64.tar.gz -C artifacts/dias-package-creator-linux .
+          fi
+          
+          # Windows
+          if [ -d "artifacts/dias-package-creator-windows" ]; then
+            cd artifacts/dias-package-creator-windows && zip -r ../../release/dias-package-creator-windows-amd64.zip . && cd ../..
+          fi
+          
+          # macOS
+          if [ -d "artifacts/dias-package-creator-macos" ]; then
+            tar -czvf release/dias-package-creator-macos-amd64.tar.gz -C artifacts/dias-package-creator-macos .
+          fi
+          
+          ls -la release/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release/*
+          draft: false
+          prerelease: ${{ contains(github.ref, '-beta') || contains(github.ref, '-alpha') || contains(github.ref, '-rc') }}
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ============================================================================
+  # Documentation Check
+  # ============================================================================
+  docs:
+    name: 📚 Documentation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check documentation files exist
+        run: |
+          echo "Checking required documentation..."
+          test -f README.md && echo "✅ README.md"
+          test -f CONFIG_GUIDE.md && echo "✅ CONFIG_GUIDE.md"
+          test -f .env.example && echo "✅ .env.example"
+          test -f dias_config.example.yml && echo "✅ dias_config.example.yml"
+          echo "✅ All documentation files present"

@@ -1,0 +1,25 @@
+# DIAS Package Creator Requirements
+# Core dependencies (mostly standard library)
+# The application uses tkinter which comes with Python
+
+# Configuration file support
+PyYAML>=6.0
+
+# Testing
+pytest>=6.2.4
+
+# Build & Packaging
+pyinstaller>=5.0
+
+# Optional: XML Schema Validation (for extended validation)
+# xmlschema>=2.0.0
+
+# Note: The following are part of Python standard library and don't need installation:
+# - tkinter (GUI)
+# - xml.etree.ElementTree (XML processing)
+# - hashlib (checksums)
+# - shutil (file operations)
+# - mimetypes (MIME detection)
+# - uuid (unique identifiers)
+# - threading (background tasks)
+# - pathlib (path handling)
