@@ -78,6 +78,25 @@ class ConfigLoader:
                 if isinstance(values, list):
                     defaults[f"{key}_options"] = values
             
+            # Extract PREMIS configuration
+            premis = data.get('premis', {})
+            if premis:
+                # PREMIS events list
+                premis_events = premis.get('events', [])
+                if isinstance(premis_events, list):
+                    defaults['premis_events'] = premis_events
+                
+                # PREMIS agents list
+                premis_agents = premis.get('agents', [])
+                if isinstance(premis_agents, list):
+                    defaults['premis_agents'] = premis_agents
+                
+                # PREMIS dropdown options
+                premis_options = premis.get('options', {})
+                for key, values in premis_options.items():
+                    if isinstance(values, list):
+                        defaults[f"premis_{key}_options"] = values
+            
             self.config_data = defaults
             return defaults
             

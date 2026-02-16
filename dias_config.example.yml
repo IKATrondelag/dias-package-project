@@ -12,7 +12,7 @@ metadata:
   record_status: 'NEW'
   
   # Archivist Information
-  archivist_organization: '9999 Kommune Eksempel'
+  archivist_organization: 'IKA Trøndelag'
   system_name: 'Eksempel System A'
   system_version: '1.0'
   system_format: 'SIARD'
@@ -103,3 +103,61 @@ options:
   preservation_organization:
     - 'Nasjonalarkivet'
     - 'Nasjonalbiblioteket'
+
+# PREMIS Preservation Configuration
+# Define default preservation events and agents
+premis:
+  # Default events to include in PREMIS log
+  events:
+    - event_type: 'Fixity check'
+      event_detail: 'checksum verification'
+      event_outcome: '0'
+      event_outcome_detail: 'Checksum verified successfully'
+      event_date: ''
+      include_sip: true
+      include_aip: true
+    - event_type: 'Creation'
+      event_detail: 'Package created'
+      event_outcome: '0'
+      event_outcome_detail: 'Successfully created package'
+      event_date: ''
+      include_sip: true
+      include_aip: true
+
+  # Default agents (people, organizations, or software involved)
+  # Each agent can be included in SIP and/or AIP logs
+  agents:
+    - agent_name: 'SIARD Washer'
+      agent_type: 'software'
+      agent_id_type: 'NO/RA'
+      agent_id_value: 'SIARD Washer'
+      include_sip: false
+      include_aip: true
+    - agent_name: 'DIAS Package Creator'
+      agent_type: 'software'
+      agent_id_type: 'NO/RA'
+      agent_id_value: 'DIAS-Package-Creator'
+      include_sip: false
+      include_aip: true
+
+  # Dropdown options for PREMIS fields
+  options:
+    # Event types (must match XSD: Creation, Migration, Ingestion, Adjustment, Disposal, Deletion)
+    event_type:
+      - 'Creation'
+      - 'Fixity check'
+      - 'Migration'
+      - 'Ingestion'
+      - 'Adjustment'
+      - 'Disposal'
+      - 'Deletion'
+      
+    # Event outcomes (0 = success, 1 = failure)
+    event_outcome:
+      - '0'
+      - '1'
+    # Agent types
+    agent_type:
+      - 'person'
+      - 'organization'
+      - 'software'
