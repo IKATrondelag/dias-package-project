@@ -18,6 +18,28 @@ from ..utils.env_config import config
 # Configure logging
 logger = logging.getLogger(__name__)
 
+VALID_PACKAGE_TYPES = {"SIP", "AIP", "DIP", "AIU", "AIC"}
+
+
+def resolve_package_type(metadata: Dict[str, Any]) -> str:
+    """Resolve and normalize package type from metadata with backward compatibility."""
+    package_type = metadata.get('package_type') or metadata.get('type') or 'SIP'
+    package_type = str(package_type).strip().upper()
+    return package_type if package_type in VALID_PACKAGE_TYPES else 'SIP'
+
+
+def resolve_record_relation_type(metadata: Dict[str, Any]) -> str:
+    """Resolve semantic relation type for supplement/replacement records."""
+    relation_type = str(metadata.get('relation_type', '')).strip().lower()
+    if relation_type:
+        return relation_type
+
+    record_status = str(metadata.get('record_status', 'NEW')).strip().upper()
+    return {
+        'SUPPLEMENT': 'supplements',
+        'REPLACEMENT': 'replaces'
+    }.get(record_status, '')
+
 
 def get_timestamp() -> str:
     """Get current timestamp in ISO format with timezone."""
@@ -93,7 +115,7 @@ class DIASInfoGenerator:
         root.set(f"{{{xsi_ns}}}schemaLocation", config.METS_INFO_SCHEMA_LOCATION)
         root.set("PROFILE", config.METS_PROFILE)
         root.set("LABEL", metadata.get('label', ''))
-        root.set("TYPE", "SIP")
+        root.set("TYPE", resolve_package_type(metadata))
         root.set("ID", f"ID{generate_uuid()}")
         root.set("OBJID", f"UUID:{aip_uuid}")
         
@@ -219,6 +241,24 @@ class DIASInfoGenerator:
             alt_id = ET.SubElement(mets_hdr, f"{{{mets_ns}}}altRecordID")
             alt_id.set("TYPE", "ENDDATE")
             alt_id.text = metadata['end_date']
+
+        record_status = str(metadata.get('record_status', 'NEW')).strip().upper()
+        if record_status in {'SUPPLEMENT', 'REPLACEMENT'}:
+            if metadata.get('related_aic_id'):
+                alt_id = ET.SubElement(mets_hdr, f"{{{mets_ns}}}altRecordID")
+                alt_id.set("TYPE", "RELATEDAIC")
+                alt_id.text = metadata['related_aic_id']
+
+            if metadata.get('related_package_id'):
+                alt_id = ET.SubElement(mets_hdr, f"{{{mets_ns}}}altRecordID")
+                alt_id.set("TYPE", "RELATEDPACKAGE")
+                alt_id.text = metadata['related_package_id']
+
+            relation_type = resolve_record_relation_type(metadata)
+            if relation_type:
+                alt_id = ET.SubElement(mets_hdr, f"{{{mets_ns}}}altRecordID")
+                alt_id.set("TYPE", "RELATIONTYPE")
+                alt_id.text = relation_type
     
     def _create_file_section(self, root, tar_file_info, aip_uuid, mets_ns, xlink_ns):
         """Create fileSec with reference to tar archive."""
@@ -302,7 +342,7 @@ class DIASMetsGenerator:
         root.set(f"{{{xsi_ns}}}schemaLocation", config.METS_SIP_SCHEMA_LOCATION)
         root.set("PROFILE", config.METS_PROFILE)
         root.set("LABEL", metadata.get('label', ''))
-        root.set("TYPE", "SIP")
+        root.set("TYPE", resolve_package_type(metadata))
         root.set("ID", f"ID{generate_uuid()}")
         root.set("OBJID", f"UUID:{sip_uuid}")
         
@@ -417,6 +457,24 @@ class DIASMetsGenerator:
             alt_id = ET.SubElement(mets_hdr, f"{{{mets_ns}}}altRecordID")
             alt_id.set("TYPE", "ENDDATE")
             alt_id.text = metadata['end_date']
+
+        record_status = str(metadata.get('record_status', 'NEW')).strip().upper()
+        if record_status in {'SUPPLEMENT', 'REPLACEMENT'}:
+            if metadata.get('related_aic_id'):
+                alt_id = ET.SubElement(mets_hdr, f"{{{mets_ns}}}altRecordID")
+                alt_id.set("TYPE", "RELATEDAIC")
+                alt_id.text = metadata['related_aic_id']
+
+            if metadata.get('related_package_id'):
+                alt_id = ET.SubElement(mets_hdr, f"{{{mets_ns}}}altRecordID")
+                alt_id.set("TYPE", "RELATEDPACKAGE")
+                alt_id.text = metadata['related_package_id']
+
+            relation_type = resolve_record_relation_type(metadata)
+            if relation_type:
+                alt_id = ET.SubElement(mets_hdr, f"{{{mets_ns}}}altRecordID")
+                alt_id.set("TYPE", "RELATIONTYPE")
+                alt_id.text = relation_type
     
     def _create_amd_section(self, root, premis_file_info, mets_ns, xlink_ns):
         """Create amdSec with reference to PREMIS file."""
@@ -435,7 +493,7 @@ class DIASMetsGenerator:
             md_ref.set("CREATED", premis_file_info.get('created', get_timestamp()))
             md_ref.set("SIZE", str(premis_file_info.get('size', 0)))
         md_ref.set("MDTYPE", "PREMIS")
-        md_ref.set(f"{{{xlink_ns}}}href", "file:administrative/premis.xml")
+        md_ref.set(f"{{{xlink_ns}}}href", "file:administrative_metadata/premis.xml")
         md_ref.set("LOCTYPE", "URL")
         md_ref.set(f"{{{xlink_ns}}}type", "simple")
         md_ref.set("ID", digiprov_id)
@@ -522,7 +580,8 @@ class DIASLogGenerator:
         for prefix, uri in self.NAMESPACES.items():
             ET.register_namespace(prefix, uri)
     
-    def create_log_xml(self, metadata, object_uuid, aic_uuid=None, files_info=None, is_sip_level=True):
+    def create_log_xml(self, metadata, object_uuid, aic_uuid=None, files_info=None, is_sip_level=True,
+                       user_events=None, agents=None):
         """
         Create log.xml (PREMIS) file.
         
@@ -532,6 +591,8 @@ class DIASLogGenerator:
             aic_uuid: UUID of the AIC (parent container)
             files_info: List of file information (for SIP-level premis.xml)
             is_sip_level: True for SIP-level, False for AIP-level
+            user_events: Optional list of user-defined event dicts
+            agents: Optional list of agent dicts
         """
         premis_ns = self.NAMESPACES['premis']
         xsi_ns = self.NAMESPACES['xsi']
@@ -548,8 +609,18 @@ class DIASLogGenerator:
             for file_info in files_info:
                 self._create_file_object(root, file_info, object_uuid, premis_ns, xsi_ns)
         
-        # Create event
+        # Create automatic event (log creation)
         self._create_event(root, object_uuid, premis_ns)
+        
+        # Create user-defined events
+        if user_events:
+            for user_event in user_events:
+                self._create_user_event(root, object_uuid, premis_ns, user_event)
+        
+        # Create agent elements
+        if agents:
+            for agent in agents:
+                self._create_agent(root, premis_ns, agent)
         
         return root
     
@@ -576,8 +647,18 @@ class DIASLogGenerator:
         self._add_significant_property(obj, premis_ns, "archivist_organization", 
                                        metadata.get('archivist_organization', ''))
         self._add_significant_property(obj, premis_ns, "label", metadata.get('label', ''))
-        self._add_significant_property(obj, premis_ns, "iptype", 
-                                       metadata.get('package_type', 'SIP'))
+        self._add_significant_property(obj, premis_ns, "iptype", resolve_package_type(metadata))
+
+        relation_type = resolve_record_relation_type(metadata)
+        record_status = str(metadata.get('record_status', 'NEW')).strip().upper()
+        if record_status in {'SUPPLEMENT', 'REPLACEMENT'}:
+            self._add_significant_property(obj, premis_ns, "record_status", record_status)
+            if relation_type:
+                self._add_significant_property(obj, premis_ns, "relation_type", relation_type)
+            if metadata.get('related_aic_id'):
+                self._add_significant_property(obj, premis_ns, "related_aic_id", metadata['related_aic_id'])
+            if metadata.get('related_package_id'):
+                self._add_significant_property(obj, premis_ns, "related_package_id", metadata['related_package_id'])
         
         # Object characteristics
         obj_char = ET.SubElement(obj, f"{{{premis_ns}}}objectCharacteristics")
@@ -607,6 +688,32 @@ class DIASLogGenerator:
             rel_obj_id_type.text = config.OBJECT_IDENTIFIER_TYPE
             rel_obj_id_value = ET.SubElement(rel_obj_id, f"{{{premis_ns}}}relatedObjectIdentifierValue")
             rel_obj_id_value.text = aic_uuid
+
+        if metadata.get('related_aic_id'):
+            relationship = ET.SubElement(obj, f"{{{premis_ns}}}relationship")
+            rel_type = ET.SubElement(relationship, f"{{{premis_ns}}}relationshipType")
+            rel_type.text = "derivation"
+            rel_subtype = ET.SubElement(relationship, f"{{{premis_ns}}}relationshipSubType")
+            rel_subtype.text = resolve_record_relation_type(metadata) or "related to"
+
+            rel_obj_id = ET.SubElement(relationship, f"{{{premis_ns}}}relatedObjectIdentification")
+            rel_obj_id_type = ET.SubElement(rel_obj_id, f"{{{premis_ns}}}relatedObjectIdentifierType")
+            rel_obj_id_type.text = config.OBJECT_IDENTIFIER_TYPE
+            rel_obj_id_value = ET.SubElement(rel_obj_id, f"{{{premis_ns}}}relatedObjectIdentifierValue")
+            rel_obj_id_value.text = metadata['related_aic_id']
+
+        if metadata.get('related_package_id'):
+            relationship = ET.SubElement(obj, f"{{{premis_ns}}}relationship")
+            rel_type = ET.SubElement(relationship, f"{{{premis_ns}}}relationshipType")
+            rel_type.text = "derivation"
+            rel_subtype = ET.SubElement(relationship, f"{{{premis_ns}}}relationshipSubType")
+            rel_subtype.text = resolve_record_relation_type(metadata) or "related to"
+
+            rel_obj_id = ET.SubElement(relationship, f"{{{premis_ns}}}relatedObjectIdentification")
+            rel_obj_id_type = ET.SubElement(rel_obj_id, f"{{{premis_ns}}}relatedObjectIdentifierType")
+            rel_obj_id_type.text = config.OBJECT_IDENTIFIER_TYPE
+            rel_obj_id_value = ET.SubElement(rel_obj_id, f"{{{premis_ns}}}relatedObjectIdentifierValue")
+            rel_obj_id_value.text = metadata['related_package_id']
     
     def _add_significant_property(self, parent, premis_ns, prop_type, prop_value):
         """Add a significant property element."""
@@ -723,6 +830,67 @@ class DIASLogGenerator:
         linking_obj_type.text = config.OBJECT_IDENTIFIER_TYPE
         linking_obj_value = ET.SubElement(linking_obj, f"{{{premis_ns}}}linkingObjectIdentifierValue")
         linking_obj_value.text = object_uuid
+    
+    def _create_user_event(self, root, object_uuid, premis_ns, event_data):
+        """Create a PREMIS event element from user-provided event data."""
+        event = ET.SubElement(root, f"{{{premis_ns}}}event")
+        
+        # Event identifier
+        event_id = ET.SubElement(event, f"{{{premis_ns}}}eventIdentifier")
+        event_id_type = ET.SubElement(event_id, f"{{{premis_ns}}}eventIdentifierType")
+        event_id_type.text = config.OBJECT_IDENTIFIER_TYPE
+        event_id_value = ET.SubElement(event_id, f"{{{premis_ns}}}eventIdentifierValue")
+        event_id_value.text = generate_uuid()
+        
+        # Event type
+        event_type = ET.SubElement(event, f"{{{premis_ns}}}eventType")
+        event_type.text = event_data.get('event_type', 'Creation')
+        
+        # Event datetime (use user-provided date or current timestamp)
+        event_datetime = ET.SubElement(event, f"{{{premis_ns}}}eventDateTime")
+        user_date = event_data.get('event_date', '').strip()
+        event_datetime.text = user_date if user_date else get_timestamp()
+        
+        # Event detail
+        event_detail = ET.SubElement(event, f"{{{premis_ns}}}eventDetail")
+        event_detail.text = event_data.get('event_detail', '')
+        
+        # Event outcome
+        event_outcome_info = ET.SubElement(event, f"{{{premis_ns}}}eventOutcomeInformation")
+        event_outcome = ET.SubElement(event_outcome_info, f"{{{premis_ns}}}eventOutcome")
+        event_outcome.text = event_data.get('event_outcome', '0')
+        
+        outcome_detail_text = event_data.get('event_outcome_detail', '')
+        if outcome_detail_text:
+            event_outcome_detail = ET.SubElement(event_outcome_info, f"{{{premis_ns}}}eventOutcomeDetail")
+            event_outcome_note = ET.SubElement(event_outcome_detail, f"{{{premis_ns}}}eventOutcomeDetailNote")
+            event_outcome_note.text = outcome_detail_text
+        
+        # Linking object
+        linking_obj = ET.SubElement(event, f"{{{premis_ns}}}linkingObjectIdentifier")
+        linking_obj_type = ET.SubElement(linking_obj, f"{{{premis_ns}}}linkingObjectIdentifierType")
+        linking_obj_type.text = config.OBJECT_IDENTIFIER_TYPE
+        linking_obj_value = ET.SubElement(linking_obj, f"{{{premis_ns}}}linkingObjectIdentifierValue")
+        linking_obj_value.text = object_uuid
+    
+    def _create_agent(self, root, premis_ns, agent_data):
+        """Create a PREMIS agent element."""
+        agent = ET.SubElement(root, f"{{{premis_ns}}}agent")
+        
+        # Agent identifier
+        agent_id = ET.SubElement(agent, f"{{{premis_ns}}}agentIdentifier")
+        agent_id_type = ET.SubElement(agent_id, f"{{{premis_ns}}}agentIdentifierType")
+        agent_id_type.text = agent_data.get('agent_id_type', config.OBJECT_IDENTIFIER_TYPE)
+        agent_id_value = ET.SubElement(agent_id, f"{{{premis_ns}}}agentIdentifierValue")
+        agent_id_value.text = agent_data.get('agent_id_value', '')
+        
+        # Agent name
+        agent_name = ET.SubElement(agent, f"{{{premis_ns}}}agentName")
+        agent_name.text = agent_data.get('agent_name', '')
+        
+        # Agent type
+        agent_type = ET.SubElement(agent, f"{{{premis_ns}}}agentType")
+        agent_type.text = agent_data.get('agent_type', 'software')
     
     def save(self, element, output_path):
         """Save the XML to file."""

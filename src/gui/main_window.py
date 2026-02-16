@@ -8,7 +8,7 @@ from tkinter import ttk, filedialog, messagebox
 import os
 from pathlib import Path
 
-from .widgets import ProgressFrame, LogFrame, MetadataForm
+from .widgets import ProgressFrame, LogFrame, MetadataForm, PremisForm
 from .labels import labels
 from ..utils.config_loader import ConfigLoader
 from ..utils.env_config import config
@@ -124,6 +124,10 @@ class MainWindow:
         self.metadata_form = MetadataForm(notebook)
         notebook.add(self.metadata_form, text=labels.TAB_METADATA)
         
+        # Tab 3: Preservation (PREMIS)
+        self.premis_form = PremisForm(notebook)
+        notebook.add(self.premis_form, text=labels.TAB_PREMIS)
+        
         # Load and apply default configuration
         self._load_defaults()
         
@@ -234,6 +238,10 @@ class MainWindow:
         package_name = self.package_name_var.get()
         metadata = self.metadata_form.get_metadata()
         
+        # Merge PREMIS data into metadata
+        premis_data = self.premis_form.get_premis_data()
+        metadata.update(premis_data)
+        
         # Use controller's comprehensive validation
         validation_result = self.controller.validate_inputs(
             source_path=source,
@@ -287,6 +295,10 @@ class MainWindow:
         package_name = self.package_name_var.get()
         metadata = self.metadata_form.get_metadata()
         
+        # Merge PREMIS data into metadata
+        premis_data = self.premis_form.get_premis_data()
+        metadata.update(premis_data)
+        
         # Disable buttons during processing
         self._set_buttons_enabled(False)
         
@@ -329,6 +341,7 @@ class MainWindow:
         self.dest_var.set("")
         self.package_name_var.set("")
         self.metadata_form.reset()
+        self.premis_form.reset()
         self.progress_frame.reset()
         self.log_frame.clear()
         self.log_frame.log("Form reset.", "INFO")
@@ -342,6 +355,7 @@ class MainWindow:
             defaults = self.config_loader.load_defaults()
             if defaults:
                 self.metadata_form.set_metadata(defaults)
+                # PREMIS defaults are loaded by PremisForm.__init__ 
                 self.log_frame.log("Loaded default values from configuration file", "INFO")
         except Exception as e:
             # Silently fail - config is optional
@@ -372,6 +386,8 @@ class MainWindow:
         if filepath:
             try:
                 metadata = self.metadata_form.get_metadata()
+                premis_data = self.premis_form.get_premis_data()
+                metadata.update(premis_data)
                 self.controller.save_metadata_template(filepath, metadata)
                 self.log_frame.log(f"Saved metadata to: {filepath}", "INFO")
             except Exception as e:
@@ -389,6 +405,8 @@ class MainWindow:
         if filepath:
             try:
                 metadata = self.metadata_form.get_metadata()
+                premis_data = self.premis_form.get_premis_data()
+                metadata.update(premis_data)
                 success = self.config_loader.save_defaults(metadata, filepath)
                 if success:
                     self.log_frame.log(f"Default configuration saved to: {filepath}", "SUCCESS")

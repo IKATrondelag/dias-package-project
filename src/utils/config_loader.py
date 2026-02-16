@@ -68,7 +68,7 @@ class ConfigLoader:
                        'creator_organization', 'producer_organization', 'producer_individual', 
                        'producer_software', 'submitter_organization', 'submitter_individual',
                        'ipowner_organization', 'preservation_organization',
-                       'submission_agreement', 'start_date', 'end_date']:
+                       'submission_agreement', 'related_aic_id', 'related_package_id', 'start_date', 'end_date']:
                 if key in metadata:
                     defaults[key] = metadata[key]
             
@@ -77,6 +77,25 @@ class ConfigLoader:
             for key, values in options.items():
                 if isinstance(values, list):
                     defaults[f"{key}_options"] = values
+            
+            # Extract PREMIS configuration
+            premis = data.get('premis', {})
+            if premis:
+                # PREMIS events list
+                premis_events = premis.get('events', [])
+                if isinstance(premis_events, list):
+                    defaults['premis_events'] = premis_events
+                
+                # PREMIS agents list
+                premis_agents = premis.get('agents', [])
+                if isinstance(premis_agents, list):
+                    defaults['premis_agents'] = premis_agents
+                
+                # PREMIS dropdown options
+                premis_options = premis.get('options', {})
+                for key, values in premis_options.items():
+                    if isinstance(values, list):
+                        defaults[f"premis_{key}_options"] = values
             
             self.config_data = defaults
             return defaults

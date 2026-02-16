@@ -147,6 +147,7 @@ jobs:
   build:
     name: 📦 Build ${{ matrix.os }}
     needs: [lint, test]
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:

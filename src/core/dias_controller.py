@@ -3,13 +3,9 @@ Package Controller for DIAS Package Creator.
 Creates DIAS-compliant packages with the proper nested structure.
 """
 
-import gc
 import logging
-import mimetypes
 import shutil
 import tarfile
-import time
-import traceback
 from datetime import datetime
 from pathlib import Path
 from typing import Callable, Dict, Any, Optional, List
@@ -106,11 +102,6 @@ class PackageController:
         """Log a message via callback if available."""
         if self._log_callback:
             self._log_callback(message, level)
-
-    def _check_cancelled(self) -> None:
-        """Check if the job has been cancelled and raise if so."""
-        if self.job_manager.is_cancelled():
-            raise InterruptedError("Package creation was cancelled by user")
             
     def _update_progress(self, value: float, status: Optional[str] = None) -> None:
         """Update progress via callback if available."""
@@ -128,6 +119,10 @@ class PackageController:
             package_name: Name for the package (used for label if not set).
             metadata: Package metadata dictionary.
         """
+        package_type = metadata.get('package_type') or metadata.get('type')
+        if package_type:
+            metadata['package_type'] = package_type
+
         # Use package name as label if label not set
         if not metadata.get('label'):
             metadata['label'] = package_name
@@ -239,18 +234,23 @@ class PackageController:
             sip_desc_dir = sip_root / "descriptive_metadata"
             
             # Step 1: Copy source files to SIP content (10-40%)
-            self._check_cancelled()
             self._update_progress(10, "Processing source files...")
             files_info = self._process_source_files(source_path, sip_content_dir)
             self._log(f"Processed {len(files_info)} files")
             
             # Step 2: Copy XSD schemas (40-45%)
-            self._check_cancelled()
             self._update_progress(40, "Copying schema files...")
             self._copy_schema_files(sip_root, sip_admin_dir)
             
+            # Extract PREMIS events and agents from metadata
+            all_premis_events = metadata.get('premis_events', [])
+            all_premis_agents = metadata.get('premis_agents', [])
+            sip_events = [e for e in all_premis_events if e.get('include_sip', True)]
+            aip_events = [e for e in all_premis_events if e.get('include_aip', True)]
+            sip_agents = [a for a in all_premis_agents if a.get('include_sip', True)]
+            aip_agents = [a for a in all_premis_agents if a.get('include_aip', True)]
+            
             # Step 3: Generate SIP-level premis.xml (45-55%)
-            self._check_cancelled()
             self._update_progress(45, "Generating SIP premis.xml...")
             premis_path = sip_admin_dir / "premis.xml"
             premis_xml = self.log_generator.create_log_xml(
@@ -258,7 +258,9 @@ class PackageController:
                 object_uuid=sip_uuid,
                 aic_uuid=None,  # SIP doesn't reference AIC directly
                 files_info=files_info,
-                is_sip_level=True
+                is_sip_level=True,
+                user_events=sip_events,
+                agents=sip_agents
             )
             self.log_generator.save(premis_xml, str(premis_path))
             self._log(f"Created: {premis_path.relative_to(aic_dir)}")
@@ -271,7 +273,6 @@ class PackageController:
             }
             
             # Step 4: Generate SIP-level log.xml (55-60%)
-            self._check_cancelled()
             self._update_progress(55, "Generating SIP log.xml...")
             sip_log_path = sip_root / "log.xml"
             sip_log_xml = self.log_generator.create_log_xml(
@@ -279,7 +280,9 @@ class PackageController:
                 object_uuid=sip_uuid,
                 aic_uuid=None,
                 files_info=None,
-                is_sip_level=True
+                is_sip_level=True,
+                user_events=sip_events,
+                agents=sip_agents
             )
             self.log_generator.save(sip_log_xml, str(sip_log_path))
             self._log(f"Created: {sip_log_path.relative_to(aic_dir)}")
@@ -288,7 +291,6 @@ class PackageController:
             sip_files_info = self._gather_sip_files_info(sip_root)
             
             # Step 5: Generate SIP mets.xml (60-70%)
-            self._check_cancelled()
             self._update_progress(60, "Generating SIP mets.xml...")
             mets_path = sip_root / "mets.xml"
             mets_xml = self.mets_generator.create_mets_xml(
@@ -301,7 +303,6 @@ class PackageController:
             self._log(f"Created: {mets_path.relative_to(aic_dir)}")
             
             # Step 6: Create tar archive of SIP (70-80%)
-            self._check_cancelled()
             self._update_progress(70, "Creating SIP tar archive...")
             self.logger.info("Starting tar archive creation")
             
@@ -317,11 +318,11 @@ class PackageController:
             self._log(f"Removed temporary SIP directory")
             
             # Force garbage collection to free memory
+            import gc
             gc.collect()
             self.logger.debug("Performed garbage collection")
             
             # Step 7: Generate AIP-level log.xml (80-85%)
-            self._check_cancelled()
             self._update_progress(80, "Generating AIP log.xml...")
             aip_log_path = aip_dir / "log.xml"
             aip_log_xml = self.log_generator.create_log_xml(
@@ -329,13 +330,14 @@ class PackageController:
                 object_uuid=aip_uuid,
                 aic_uuid=aic_uuid,
                 files_info=None,
-                is_sip_level=False
+                is_sip_level=False,
+                user_events=aip_events,
+                agents=aip_agents
             )
             self.log_generator.save(aip_log_xml, str(aip_log_path))
             self._log(f"Created: {aip_log_path.relative_to(aic_dir)}")
             
             # Step 8: Generate AIC info.xml (85-95%)
-            self._check_cancelled()
             self._update_progress(85, "Generating AIC info.xml...")
             
             info_path = aic_dir / "info.xml"
@@ -357,18 +359,8 @@ class PackageController:
             
         except Exception as e:
             self._log(f"Error creating package: {e}", "ERROR")
+            import traceback
             self._log(traceback.format_exc(), "DEBUG")
-            
-            # Clean up partially created output on failure
-            if aic_dir and aic_dir.exists():
-                try:
-                    self.logger.info(f"Cleaning up failed package directory: {aic_dir}")
-                    shutil.rmtree(aic_dir)
-                    self._log("Cleaned up incomplete package directory", "WARNING")
-                except Exception as cleanup_error:
-                    self.logger.error(f"Failed to clean up directory: {cleanup_error}")
-                    self._log(f"Warning: Could not clean up {aic_dir}", "WARNING")
-            
             return (False, f"Package creation failed: {e}")
     
     def _create_directory_structure(self, aic_dir: Path, aip_dir: Path, sip_uuid: str) -> None:
@@ -409,6 +401,8 @@ class PackageController:
         Returns:
             List of file information dictionaries.
         """
+        import gc
+        
         source = Path(source_path)
         files_info = []
         
@@ -473,20 +467,21 @@ class PackageController:
         Returns:
             Dictionary with tar file information.
         """
+        import gc
+        import time
+        
         tar_path = content_dir / f"{sip_uuid}.tar"
         
         # Count total files for progress reporting
         self.logger.info("Scanning directory structure for tar archive")
         all_files = list(sip_root.rglob('*'))
-        file_sizes = {f: f.stat().st_size for f in all_files if f.is_file()}
-        total_files = len(file_sizes)
-        total_size = sum(file_sizes.values())
+        total_files = sum(1 for f in all_files if f.is_file())
+        total_size = sum(f.stat().st_size for f in all_files if f.is_file())
         
         self.logger.info(f"Creating tar archive with {total_files} files ({total_size / (1024*1024):.2f} MB)")
         self._log(f"Creating tar archive with {total_files} files...")
         
         processed = 0
-        processed_bytes = 0
         start_time = time.time()
         
         try:
@@ -504,11 +499,10 @@ class PackageController:
                         tar.add(item, arcname=arcname, recursive=False)
                         if item.is_file():
                             processed += 1 # Progress reporting
-                            processed_bytes += file_sizes.get(item, 0)
                             if processed % 10 == 0 or processed == total_files:
                                 elapsed = time.time() - start_time
                                 if elapsed > 0:
-                                    rate_mb = (processed_bytes / (1024*1024)) / elapsed
+                                    rate_mb = (sum(f.stat().st_size for f in all_files[:processed] if f.is_file()) / (1024*1024)) / elapsed
                                     self.logger.debug(f"Tar progress: {processed}/{total_files} files ({rate_mb:.2f} MB/s)")
                                 
                                 progress = 70 + (processed / max(total_files, 1)) * 10
@@ -558,6 +552,7 @@ class PackageController:
             rel_path = str(dest.relative_to(base_dir))
             
             # Guess mimetype
+            import mimetypes
             mimetype = mimetypes.guess_type(str(dest))[0] or 'application/octet-stream'
             
             return {
@@ -604,6 +599,7 @@ class PackageController:
             file_path = sip_root / pattern
             if file_path.exists():
                 stat = file_path.stat()
+                import mimetypes
                 mimetype = mimetypes.guess_type(str(file_path))[0] or 'application/octet-stream'
                 
                 files_info.append({
@@ -622,6 +618,7 @@ class PackageController:
                 if file_path.is_file():
                     stat = file_path.stat()
                     rel_path = file_path.relative_to(sip_root)
+                    import mimetypes
                     mimetype = mimetypes.guess_type(str(file_path))[0] or 'application/octet-stream'
                     
                     files_info.append({
@@ -634,12 +631,13 @@ class PackageController:
                     })
         
         # Add descriptive metadata files
-        desc_dir = sip_root / 'descriptive'
+        desc_dir = sip_root / 'descriptive_metadata'
         if desc_dir.exists():
             for file_path in desc_dir.rglob('*'):
                 if file_path.is_file():
                     stat = file_path.stat()
                     rel_path = file_path.relative_to(sip_root)
+                    import mimetypes
                     mimetype = mimetypes.guess_type(str(file_path))[0] or 'application/octet-stream'
                     
                     files_info.append({

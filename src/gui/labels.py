@@ -31,6 +31,7 @@ class Labels:
     # Tabs
     TAB_SOURCE_DEST = "Source & Destination"
     TAB_METADATA = "Package Metadata"
+    TAB_PREMIS = "Preservation (PREMIS)"
     
     # Source & Destination Tab
     HEADING_SOURCE_SELECTION = "Source Selection"
@@ -70,12 +71,12 @@ class Labels:
     LABEL_LABEL_TITLE = "Label/Title*:"
     LABEL_RECORD_STATUS = "Record Status:"
     
-    LABEL_ARCHIVIST_ORG = "Archivist Organization*:"
+    LABEL_ARCHIVIST_ORG = "Archivist Organization (IKA)*:"
     LABEL_SYSTEM_NAME = "System/Software Name*:"
     LABEL_SYSTEM_VERSION = "System Version:"
     LABEL_SYSTEM_FORMAT = "Content Format:"
     
-    LABEL_CREATOR_ORG = "Creator Organization (IKA)*:"
+    LABEL_CREATOR_ORG = "Creator Organization*:"
     
     LABEL_PRODUCER_ORG = "Producer Organization:"
     LABEL_PRODUCER_INDIVIDUAL = "Producer Individual:"
@@ -88,6 +89,8 @@ class Labels:
     LABEL_PRESERVATION_ORG = "Preservation Organization:"
     
     LABEL_SUBMISSION_AGREEMENT = "Submission Agreement ID*:"
+    LABEL_RELATED_AIC_ID = "Related AIC UUID:"
+    LABEL_RELATED_PACKAGE_ID = "Related Package UUID:"
     LABEL_START_DATE = "Content Start Date:"
     LABEL_END_DATE = "Content End Date:"
     
@@ -108,10 +111,43 @@ class Labels:
     
     # Required field names (for validation messages)
     FIELD_LABEL_TITLE = "Label/Title"
-    FIELD_ARCHIVIST_ORG = "Archivist Organization"
+    FIELD_ARCHIVIST_ORG = "Archivist Organization (IKA)"
     FIELD_SYSTEM_NAME = "System/Software Name"
-    FIELD_CREATOR_ORG = "Creator Organization (IKA)"
+    FIELD_CREATOR_ORG = "Creator Organization"
     FIELD_SUBMISSION_AGREEMENT = "Submission Agreement ID"
+    FIELD_RELATED_REFERENCE = "Related AIC UUID or Related Package UUID"
+    
+    # PREMIS Form - Section Headers
+    SECTION_PREMIS_EVENTS = "Preservation Events"
+    SECTION_PREMIS_AGENTS = "Preservation Agents"
+    
+    # PREMIS Form - Event Field Labels
+    LABEL_EVENT_TYPE = "Event Type:"
+    LABEL_EVENT_DETAIL = "Event Detail:"
+    LABEL_EVENT_OUTCOME = "Event Outcome:"
+    LABEL_EVENT_OUTCOME_DETAIL = "Outcome Detail:"
+    LABEL_EVENT_DATE = "Event Date:"
+    LABEL_INCLUDE_SIP = "Include in SIP"
+    LABEL_INCLUDE_AIP = "Include in AIP"
+    
+    # PREMIS Form - Agent Field Labels
+    LABEL_AGENT_NAME = "Agent Name:"
+    LABEL_AGENT_TYPE = "Agent Type:"
+    LABEL_AGENT_ID_TYPE = "Identifier Type:"
+    LABEL_AGENT_ID_VALUE = "Identifier Value:"
+    LABEL_AGENT_INCLUDE_SIP = "Include in SIP"
+    LABEL_AGENT_INCLUDE_AIP = "Include in AIP"
+    
+    # PREMIS Form - Buttons
+    BTN_ADD_EVENT = "+ Add Event"
+    BTN_REMOVE_EVENT = "Remove"
+    BTN_ADD_AGENT = "+ Add Agent"
+    BTN_REMOVE_AGENT = "Remove"
+    
+    # PREMIS Form - Dropdown Values (from XSD schema)
+    PREMIS_EVENT_TYPES = ["Creation", "Migration", "Ingestion", "Adjustment", "Disposal", "Deletion"]
+    PREMIS_EVENT_OUTCOMES = ["0", "1"]  # 0 = success, 1 = failure
+    PREMIS_AGENT_TYPES = ["person", "organization", "software"]
 
 
 # Create a default instance for easy importing

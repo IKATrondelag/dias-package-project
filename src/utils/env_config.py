@@ -132,7 +132,7 @@ class AppConfig:
     PRESERVATION_PLATFORM = get_env('PRESERVATION_PLATFORM', 'Preservation platform ESSArch')
     CHECKSUM_ORIGINATOR = get_env('CHECKSUM_ORIGINATOR', 'ESSArch')
     LINKING_AGENT = get_env('LINKING_AGENT', 'ESSArch')
-    LOG_CREATION_EVENT_TYPE = get_env('LOG_CREATION_EVENT_TYPE', '10000')
+    LOG_CREATION_EVENT_TYPE = get_env('LOG_CREATION_EVENT_TYPE', 'Creation')
     
     # Schema locations
     METS_INFO_SCHEMA_LOCATION = get_env(

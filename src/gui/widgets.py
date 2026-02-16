@@ -7,6 +7,7 @@ from tkinter import ttk
 from datetime import datetime
 import re
 from pathlib import Path
+from uuid import uuid4
 
 from ..utils.env_config import config
 from ..utils.config_loader import ConfigLoader
@@ -279,6 +280,8 @@ class MetadataForm(ttk.Frame):
         # Agreement and Date Information
         row = self._add_section_header(row, labels.SECTION_AGREEMENT_DATE)
         row = self._add_entry(row, "submission_agreement", labels.LABEL_SUBMISSION_AGREEMENT, "")
+        row = self._add_entry(row, "related_aic_id", labels.LABEL_RELATED_AIC_ID, "")
+        row = self._add_entry(row, "related_package_id", labels.LABEL_RELATED_PACKAGE_ID, "")
         row = self._add_date_field(row, "start_date", labels.LABEL_START_DATE)
         row = self._add_date_field(row, "end_date", labels.LABEL_END_DATE)
         
@@ -418,6 +421,13 @@ class MetadataForm(ttk.Frame):
             value = self._get_field_value(field)
             if not value or not value.strip():
                 errors.append(f"{name} is required")
+
+        record_status = (self._get_field_value('record_status') or '').strip().upper()
+        if record_status in {'SUPPLEMENT', 'REPLACEMENT'}:
+            related_aic_id = self._get_field_value('related_aic_id').strip()
+            related_package_id = self._get_field_value('related_package_id').strip()
+            if not related_aic_id and not related_package_id:
+                errors.append(f"{labels.FIELD_RELATED_REFERENCE} is required for {record_status}")
                 
         return errors
         
@@ -455,6 +465,9 @@ class MetadataForm(ttk.Frame):
             metadata: Dictionary of metadata values.
                      Can include special '_options' keys for dropdown values.
         """
+        if 'type' in metadata and 'package_type' not in metadata:
+            metadata = {**metadata, 'package_type': metadata.get('type')}
+
         for field_name, value in metadata.items():
             # Skip special option keys
             if field_name.endswith('_options'):
@@ -506,3 +519,347 @@ class MetadataForm(ttk.Frame):
                     field['widget'].insert("1.0", default)
             else:
                 field['var'].set(default)
+
+
+class PremisForm(ttk.Frame):
+    """Widget for entering PREMIS preservation events and agents."""
+    
+    def __init__(self, parent):
+        """Initialize the PREMIS form."""
+        super().__init__(parent, padding="10")
+        self.event_rows = []  # List of event row dicts
+        self.agent_rows = []  # List of agent row dicts
+        self.config_loader = ConfigLoader()
+        self.config_defaults = self._load_config_defaults()
+        self._create_widgets()
+        self._load_premis_defaults()
+        
+    def _load_config_defaults(self):
+        """Load default values from config file."""
+        defaults = self.config_loader.load_defaults()
+        return defaults if defaults else {}
+    
+    def _load_premis_defaults(self):
+        """Load default events and agents from config."""
+        premis_events = self.config_defaults.get('premis_events', [])
+        premis_agents = self.config_defaults.get('premis_agents', [])
+        
+        if premis_events:
+            for event_data in premis_events:
+                self._add_event_row(event_data)
+                
+        if premis_agents:
+            for agent_data in premis_agents:
+                self._add_agent_row(agent_data)
+    
+    def _create_widgets(self):
+        """Create the PREMIS form layout."""
+        self.columnconfigure(0, weight=1)
+        self.rowconfigure(0, weight=1)
+        
+        # Create scrollable frame
+        canvas = tk.Canvas(self, highlightthickness=0)
+        scrollbar = ttk.Scrollbar(self, orient="vertical", command=canvas.yview)
+        self.scrollable_frame = ttk.Frame(canvas)
+        
+        self.scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+        
+        # Bind mousewheel scrolling only when cursor is over the canvas
+        def _on_mousewheel(event):
+            canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        
+        def _bind_mousewheel(event):
+            canvas.bind_all("<MouseWheel>", _on_mousewheel)
+        
+        def _unbind_mousewheel(event):
+            canvas.unbind_all("<MouseWheel>")
+        
+        canvas.bind("<Enter>", _bind_mousewheel)
+        canvas.bind("<Leave>", _unbind_mousewheel)
+        
+        canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+        
+        canvas.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
+        scrollbar.grid(row=0, column=1, sticky="ns")
+        
+        self.scrollable_frame.columnconfigure(0, weight=1)
+        
+        # --- Events Section ---
+        self.events_section_row = 0
+        ttk.Separator(self.scrollable_frame, orient="horizontal").grid(
+            row=self.events_section_row, column=0, sticky="ew", pady=(5, 5))
+        self.events_section_row += 1
+        
+        header_frame = ttk.Frame(self.scrollable_frame)
+        header_frame.grid(row=self.events_section_row, column=0, sticky="ew", pady=(0, 10))
+        header_frame.columnconfigure(0, weight=1)
+        ttk.Label(header_frame, text=labels.SECTION_PREMIS_EVENTS, 
+                  font=('Helvetica', 10, 'bold')).grid(row=0, column=0, sticky="w")
+        ttk.Button(header_frame, text=labels.BTN_ADD_EVENT,
+                   command=lambda: self._add_event_row()).grid(row=0, column=1, sticky="e")
+        self.events_section_row += 1
+        
+        # Container for event rows
+        self.events_container = ttk.Frame(self.scrollable_frame)
+        self.events_container.grid(row=self.events_section_row, column=0, sticky="ew")
+        self.events_container.columnconfigure(0, weight=1)
+        self.events_section_row += 1
+        
+        # --- Agents Section ---
+        ttk.Separator(self.scrollable_frame, orient="horizontal").grid(
+            row=self.events_section_row, column=0, sticky="ew", pady=(15, 5))
+        self.events_section_row += 1
+        
+        agent_header_frame = ttk.Frame(self.scrollable_frame)
+        agent_header_frame.grid(row=self.events_section_row, column=0, sticky="ew", pady=(0, 10))
+        agent_header_frame.columnconfigure(0, weight=1)
+        ttk.Label(agent_header_frame, text=labels.SECTION_PREMIS_AGENTS,
+                  font=('Helvetica', 10, 'bold')).grid(row=0, column=0, sticky="w")
+        ttk.Button(agent_header_frame, text=labels.BTN_ADD_AGENT,
+                   command=lambda: self._add_agent_row()).grid(row=0, column=1, sticky="e")
+        self.events_section_row += 1
+        
+        # Container for agent rows
+        self.agents_container = ttk.Frame(self.scrollable_frame)
+        self.agents_container.grid(row=self.events_section_row, column=0, sticky="ew")
+        self.agents_container.columnconfigure(0, weight=1)
+    
+    def _add_event_row(self, defaults=None):
+        """Add a new event row to the events section."""
+        defaults = defaults or {}
+        row_index = len(self.event_rows)
+        
+        # Outer frame with border effect
+        event_frame = ttk.LabelFrame(self.events_container, text=f"Event {row_index + 1}", padding="5")
+        event_frame.grid(row=row_index, column=0, sticky="ew", pady=(0, 8))
+        event_frame.columnconfigure(1, weight=1)
+        event_frame.columnconfigure(3, weight=1)
+        
+        # Get option lists from config or defaults
+        event_type_options = self.config_defaults.get('premis_event_type_options', 
+                                                       labels.PREMIS_EVENT_TYPES)
+        event_outcome_options = self.config_defaults.get('premis_event_outcome_options',
+                                                          labels.PREMIS_EVENT_OUTCOMES)
+        
+        # Row 0: Event Type + Event Date
+        ttk.Label(event_frame, text=labels.LABEL_EVENT_TYPE).grid(row=0, column=0, sticky="w", pady=2)
+        event_type_var = tk.StringVar(value=defaults.get('event_type', 'Creation'))
+        event_type_combo = ttk.Combobox(event_frame, textvariable=event_type_var, 
+                                         values=event_type_options, width=20, state="readonly")
+        event_type_combo.grid(row=0, column=1, sticky="w", pady=2, padx=(5, 15))
+        
+        ttk.Label(event_frame, text=labels.LABEL_EVENT_DATE).grid(row=0, column=2, sticky="w", pady=2)
+        event_date_var = tk.StringVar(value=defaults.get('event_date', ''))
+        event_date_entry = ttk.Entry(event_frame, textvariable=event_date_var, width=20)
+        event_date_entry.grid(row=0, column=3, sticky="w", pady=2, padx=(5, 0))
+        
+        # Row 1: Event Detail
+        ttk.Label(event_frame, text=labels.LABEL_EVENT_DETAIL).grid(row=1, column=0, sticky="w", pady=2)
+        event_detail_var = tk.StringVar(value=defaults.get('event_detail', ''))
+        event_detail_entry = ttk.Entry(event_frame, textvariable=event_detail_var, width=60)
+        event_detail_entry.grid(row=1, column=1, columnspan=3, sticky="ew", pady=2, padx=(5, 0))
+        
+        # Row 2: Event Outcome + Outcome Detail
+        ttk.Label(event_frame, text=labels.LABEL_EVENT_OUTCOME).grid(row=2, column=0, sticky="w", pady=2)
+        event_outcome_var = tk.StringVar(value=defaults.get('event_outcome', '0'))
+        event_outcome_combo = ttk.Combobox(event_frame, textvariable=event_outcome_var,
+                                            values=event_outcome_options, width=10, state="readonly")
+        event_outcome_combo.grid(row=2, column=1, sticky="w", pady=2, padx=(5, 15))
+        
+        ttk.Label(event_frame, text=labels.LABEL_EVENT_OUTCOME_DETAIL).grid(row=2, column=2, sticky="w", pady=2)
+        event_outcome_detail_var = tk.StringVar(value=defaults.get('event_outcome_detail', ''))
+        event_outcome_detail_entry = ttk.Entry(event_frame, textvariable=event_outcome_detail_var, width=30)
+        event_outcome_detail_entry.grid(row=2, column=3, sticky="ew", pady=2, padx=(5, 0))
+        
+        # Row 3: Include checkboxes + Remove button
+        checkbox_frame = ttk.Frame(event_frame)
+        checkbox_frame.grid(row=3, column=0, columnspan=4, sticky="ew", pady=(5, 0))
+        
+        include_sip_var = tk.BooleanVar(value=defaults.get('include_sip', True))
+        ttk.Checkbutton(checkbox_frame, text=labels.LABEL_INCLUDE_SIP,
+                        variable=include_sip_var).pack(side="left", padx=(0, 15))
+        
+        include_aip_var = tk.BooleanVar(value=defaults.get('include_aip', True))
+        ttk.Checkbutton(checkbox_frame, text=labels.LABEL_INCLUDE_AIP,
+                        variable=include_aip_var).pack(side="left", padx=(0, 15))
+        
+        # Remove button
+        row_data = {
+            'frame': event_frame,
+            'event_type': event_type_var,
+            'event_date': event_date_var,
+            'event_detail': event_detail_var,
+            'event_outcome': event_outcome_var,
+            'event_outcome_detail': event_outcome_detail_var,
+            'include_sip': include_sip_var,
+            'include_aip': include_aip_var,
+        }
+        
+        remove_btn = ttk.Button(checkbox_frame, text=labels.BTN_REMOVE_EVENT,
+                                command=lambda rd=row_data: self._remove_event_row(rd))
+        remove_btn.pack(side="right")
+        
+        self.event_rows.append(row_data)
+    
+    def _remove_event_row(self, row_data):
+        """Remove an event row."""
+        if row_data in self.event_rows:
+            row_data['frame'].destroy()
+            self.event_rows.remove(row_data)
+            self._renumber_events()
+    
+    def _renumber_events(self):
+        """Renumber event frames after removal."""
+        for i, row_data in enumerate(self.event_rows):
+            row_data['frame'].configure(text=f"Event {i + 1}")
+            row_data['frame'].grid(row=i, column=0, sticky="ew", pady=(0, 8))
+    
+    def _add_agent_row(self, defaults=None):
+        """Add a new agent row to the agents section."""
+        defaults = defaults or {}
+        row_index = len(self.agent_rows)
+        
+        agent_frame = ttk.LabelFrame(self.agents_container, text=f"Agent {row_index + 1}", padding="5")
+        agent_frame.grid(row=row_index, column=0, sticky="ew", pady=(0, 8))
+        agent_frame.columnconfigure(1, weight=1)
+        agent_frame.columnconfigure(3, weight=1)
+        
+        agent_type_options = self.config_defaults.get('premis_agent_type_options',
+                                                       labels.PREMIS_AGENT_TYPES)
+        
+        # Row 0: Agent Name + Agent Type
+        ttk.Label(agent_frame, text=labels.LABEL_AGENT_NAME).grid(row=0, column=0, sticky="w", pady=2)
+        agent_name_var = tk.StringVar(value=defaults.get('agent_name', ''))
+        agent_name_entry = ttk.Entry(agent_frame, textvariable=agent_name_var, width=30)
+        agent_name_entry.grid(row=0, column=1, sticky="ew", pady=2, padx=(5, 15))
+        
+        ttk.Label(agent_frame, text=labels.LABEL_AGENT_TYPE).grid(row=0, column=2, sticky="w", pady=2)
+        agent_type_var = tk.StringVar(value=defaults.get('agent_type', 'software'))
+        agent_type_combo = ttk.Combobox(agent_frame, textvariable=agent_type_var,
+                                         values=agent_type_options, width=15, state="readonly")
+        agent_type_combo.grid(row=0, column=3, sticky="w", pady=2, padx=(5, 0))
+        
+        # Row 1: Identifier Type + Identifier Value
+        ttk.Label(agent_frame, text=labels.LABEL_AGENT_ID_TYPE).grid(row=1, column=0, sticky="w", pady=2)
+        agent_id_type_var = tk.StringVar(value=defaults.get('agent_id_type', 'NO/RA'))
+        agent_id_type_entry = ttk.Entry(agent_frame, textvariable=agent_id_type_var, width=20)
+        agent_id_type_entry.grid(row=1, column=1, sticky="w", pady=2, padx=(5, 15))
+        
+        ttk.Label(agent_frame, text=labels.LABEL_AGENT_ID_VALUE).grid(row=1, column=2, sticky="w", pady=2)
+        agent_id_value_var = tk.StringVar(value=defaults.get('agent_id_value', ''))
+        agent_id_value_entry = ttk.Entry(agent_frame, textvariable=agent_id_value_var, width=30)
+        agent_id_value_entry.grid(row=1, column=3, sticky="ew", pady=2, padx=(5, 0))
+        
+        # Row 2: Include checkboxes + Remove button
+        checkbox_frame = ttk.Frame(agent_frame)
+        checkbox_frame.grid(row=2, column=0, columnspan=4, sticky="ew", pady=(5, 0))
+
+        include_sip_var = tk.BooleanVar(value=defaults.get('include_sip', True))
+        ttk.Checkbutton(checkbox_frame, text=labels.LABEL_AGENT_INCLUDE_SIP,
+                        variable=include_sip_var).pack(side="left", padx=(0, 15))
+
+        include_aip_var = tk.BooleanVar(value=defaults.get('include_aip', True))
+        ttk.Checkbutton(checkbox_frame, text=labels.LABEL_AGENT_INCLUDE_AIP,
+                        variable=include_aip_var).pack(side="left", padx=(0, 15))
+
+        row_data = {
+            'frame': agent_frame,
+            'agent_name': agent_name_var,
+            'agent_type': agent_type_var,
+            'agent_id_type': agent_id_type_var,
+            'agent_id_value': agent_id_value_var,
+            'include_sip': include_sip_var,
+            'include_aip': include_aip_var,
+        }
+        
+        ttk.Button(checkbox_frame, text=labels.BTN_REMOVE_AGENT,
+                   command=lambda rd=row_data: self._remove_agent_row(rd)).pack(side="right")
+        
+        self.agent_rows.append(row_data)
+    
+    def _remove_agent_row(self, row_data):
+        """Remove an agent row."""
+        if row_data in self.agent_rows:
+            row_data['frame'].destroy()
+            self.agent_rows.remove(row_data)
+            self._renumber_agents()
+    
+    def _renumber_agents(self):
+        """Renumber agent frames after removal."""
+        for i, row_data in enumerate(self.agent_rows):
+            row_data['frame'].configure(text=f"Agent {i + 1}")
+            row_data['frame'].grid(row=i, column=0, sticky="ew", pady=(0, 8))
+    
+    def get_premis_data(self):
+        """
+        Get all PREMIS data as a dictionary.
+        
+        Returns:
+            Dictionary with 'premis_events' and 'premis_agents' lists.
+        """
+        events = []
+        for row in self.event_rows:
+            events.append({
+                'event_type': row['event_type'].get(),
+                'event_date': row['event_date'].get(),
+                'event_detail': row['event_detail'].get(),
+                'event_outcome': row['event_outcome'].get(),
+                'event_outcome_detail': row['event_outcome_detail'].get(),
+                'include_sip': row['include_sip'].get(),
+                'include_aip': row['include_aip'].get(),
+            })
+        
+        agents = []
+        for row in self.agent_rows:
+            agents.append({
+                'agent_name': row['agent_name'].get(),
+                'agent_type': row['agent_type'].get(),
+                'agent_id_type': row['agent_id_type'].get(),
+                'agent_id_value': row['agent_id_value'].get(),
+                'include_sip': row['include_sip'].get(),
+                'include_aip': row['include_aip'].get(),
+            })
+        
+        return {
+            'premis_events': events,
+            'premis_agents': agents,
+        }
+    
+    def set_premis_data(self, data):
+        """
+        Set PREMIS data from a dictionary.
+        
+        Args:
+            data: Dictionary that may contain 'premis_events' and 'premis_agents'.
+        """
+        events = data.get('premis_events', [])
+        agents = data.get('premis_agents', [])
+        
+        # Clear existing rows
+        self.reset()
+        
+        # Add event rows
+        for event_data in events:
+            self._add_event_row(event_data)
+        
+        # Add agent rows
+        for agent_data in agents:
+            self._add_agent_row(agent_data)
+    
+    def reset(self):
+        """Remove all event and agent rows, then reload defaults."""
+        for row in list(self.event_rows):
+            row['frame'].destroy()
+        self.event_rows.clear()
+        
+        for row in list(self.agent_rows):
+            row['frame'].destroy()
+        self.agent_rows.clear()
+        
+        # Reload defaults from config
+        self.config_defaults = self._load_config_defaults()
+        self._load_premis_defaults()
