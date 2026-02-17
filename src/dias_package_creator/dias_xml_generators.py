@@ -522,7 +522,8 @@ class DIASLogGenerator:
         for prefix, uri in self.NAMESPACES.items():
             ET.register_namespace(prefix, uri)
     
-    def create_log_xml(self, metadata, object_uuid, aic_uuid=None, files_info=None, is_sip_level=True):
+    def create_log_xml(self, metadata, object_uuid, aic_uuid=None, files_info=None, is_sip_level=True,
+                       user_events=None, agents=None):
         """
         Create log.xml (PREMIS) file.
         
@@ -532,6 +533,8 @@ class DIASLogGenerator:
             aic_uuid: UUID of the AIC (parent container)
             files_info: List of file information (for SIP-level premis.xml)
             is_sip_level: True for SIP-level, False for AIP-level
+            user_events: Optional list of user-defined event dicts
+            agents: Optional list of agent dicts
         """
         premis_ns = self.NAMESPACES['premis']
         xsi_ns = self.NAMESPACES['xsi']
@@ -548,8 +551,18 @@ class DIASLogGenerator:
             for file_info in files_info:
                 self._create_file_object(root, file_info, object_uuid, premis_ns, xsi_ns)
         
-        # Create event
+        # Create automatic event (log creation)
         self._create_event(root, object_uuid, premis_ns)
+        
+        # Create user-defined events
+        if user_events:
+            for user_event in user_events:
+                self._create_user_event(root, object_uuid, premis_ns, user_event)
+        
+        # Create agent elements
+        if agents:
+            for agent in agents:
+                self._create_agent(root, premis_ns, agent)
         
         return root
     
@@ -723,6 +736,67 @@ class DIASLogGenerator:
         linking_obj_type.text = config.OBJECT_IDENTIFIER_TYPE
         linking_obj_value = ET.SubElement(linking_obj, f"{{{premis_ns}}}linkingObjectIdentifierValue")
         linking_obj_value.text = object_uuid
+    
+    def _create_user_event(self, root, object_uuid, premis_ns, event_data):
+        """Create a PREMIS event element from user-provided event data."""
+        event = ET.SubElement(root, f"{{{premis_ns}}}event")
+        
+        # Event identifier
+        event_id = ET.SubElement(event, f"{{{premis_ns}}}eventIdentifier")
+        event_id_type = ET.SubElement(event_id, f"{{{premis_ns}}}eventIdentifierType")
+        event_id_type.text = config.OBJECT_IDENTIFIER_TYPE
+        event_id_value = ET.SubElement(event_id, f"{{{premis_ns}}}eventIdentifierValue")
+        event_id_value.text = generate_uuid()
+        
+        # Event type
+        event_type = ET.SubElement(event, f"{{{premis_ns}}}eventType")
+        event_type.text = event_data.get('event_type', 'Creation')
+        
+        # Event datetime (use user-provided date or current timestamp)
+        event_datetime = ET.SubElement(event, f"{{{premis_ns}}}eventDateTime")
+        user_date = event_data.get('event_date', '').strip()
+        event_datetime.text = user_date if user_date else get_timestamp()
+        
+        # Event detail
+        event_detail = ET.SubElement(event, f"{{{premis_ns}}}eventDetail")
+        event_detail.text = event_data.get('event_detail', '')
+        
+        # Event outcome
+        event_outcome_info = ET.SubElement(event, f"{{{premis_ns}}}eventOutcomeInformation")
+        event_outcome = ET.SubElement(event_outcome_info, f"{{{premis_ns}}}eventOutcome")
+        event_outcome.text = event_data.get('event_outcome', '0')
+        
+        outcome_detail_text = event_data.get('event_outcome_detail', '')
+        if outcome_detail_text:
+            event_outcome_detail = ET.SubElement(event_outcome_info, f"{{{premis_ns}}}eventOutcomeDetail")
+            event_outcome_note = ET.SubElement(event_outcome_detail, f"{{{premis_ns}}}eventOutcomeDetailNote")
+            event_outcome_note.text = outcome_detail_text
+        
+        # Linking object
+        linking_obj = ET.SubElement(event, f"{{{premis_ns}}}linkingObjectIdentifier")
+        linking_obj_type = ET.SubElement(linking_obj, f"{{{premis_ns}}}linkingObjectIdentifierType")
+        linking_obj_type.text = config.OBJECT_IDENTIFIER_TYPE
+        linking_obj_value = ET.SubElement(linking_obj, f"{{{premis_ns}}}linkingObjectIdentifierValue")
+        linking_obj_value.text = object_uuid
+    
+    def _create_agent(self, root, premis_ns, agent_data):
+        """Create a PREMIS agent element."""
+        agent = ET.SubElement(root, f"{{{premis_ns}}}agent")
+        
+        # Agent identifier
+        agent_id = ET.SubElement(agent, f"{{{premis_ns}}}agentIdentifier")
+        agent_id_type = ET.SubElement(agent_id, f"{{{premis_ns}}}agentIdentifierType")
+        agent_id_type.text = agent_data.get('agent_id_type', config.OBJECT_IDENTIFIER_TYPE)
+        agent_id_value = ET.SubElement(agent_id, f"{{{premis_ns}}}agentIdentifierValue")
+        agent_id_value.text = agent_data.get('agent_id_value', '')
+        
+        # Agent name
+        agent_name = ET.SubElement(agent, f"{{{premis_ns}}}agentName")
+        agent_name.text = agent_data.get('agent_name', '')
+        
+        # Agent type
+        agent_type = ET.SubElement(agent, f"{{{premis_ns}}}agentType")
+        agent_type.text = agent_data.get('agent_type', 'software')
     
     def save(self, element, output_path):
         """Save the XML to file."""

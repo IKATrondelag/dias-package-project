@@ -210,5 +210,91 @@ class TestControllerCopyFile(unittest.TestCase):
         self.assertIsNone(info)
 
 
+class TestControllerPremisAgentFiltering(unittest.TestCase):
+    """Tests for PREMIS agent inclusion filtering by SIP/AIP level."""
+
+    def setUp(self):
+        self.controller = PackageController()
+        self.temp_dir = tempfile.mkdtemp()
+        self.source_dir = os.path.join(self.temp_dir, 'source')
+        self.output_dir = os.path.join(self.temp_dir, 'output')
+        os.makedirs(self.source_dir)
+        os.makedirs(self.output_dir)
+
+        with open(os.path.join(self.source_dir, 'doc.txt'), 'w', encoding='utf-8') as f:
+            f.write('test content')
+
+        self.metadata = {
+            'package_type': 'SIP',
+            'label': 'Filter Test Package',
+            'record_status': 'NEW',
+            'archivist_organization': 'Test Archive',
+            'system_name': 'Test System',
+            'creator_organization': 'Test Creator',
+            'submission_agreement': 'AGR-001',
+            'start_date': '2020-01-01',
+            'end_date': '2023-12-31',
+            'premis_events': [],
+            'premis_agents': [
+                {
+                    'agent_name': 'Both Agent',
+                    'agent_type': 'software',
+                    'agent_id_type': 'NO/RA',
+                    'agent_id_value': 'both',
+                    'include_sip': True,
+                    'include_aip': True,
+                },
+                {
+                    'agent_name': 'SIP Only Agent',
+                    'agent_type': 'organization',
+                    'agent_id_type': 'NO/RA',
+                    'agent_id_value': 'sip-only',
+                    'include_sip': True,
+                    'include_aip': False,
+                },
+                {
+                    'agent_name': 'AIP Only Agent',
+                    'agent_type': 'person',
+                    'agent_id_type': 'NO/RA',
+                    'agent_id_value': 'aip-only',
+                    'include_sip': False,
+                    'include_aip': True,
+                },
+            ],
+        }
+
+    def tearDown(self):
+        shutil.rmtree(self.temp_dir)
+
+    def test_agents_filtered_between_sip_and_aip_logs(self):
+        """SIP logs and AIP log should receive different agent sets by include flags."""
+        captured_agents = []
+        original_create_log_xml = self.controller.log_generator.create_log_xml
+
+        def wrapped_create_log_xml(*args, **kwargs):
+            captured_agents.append(kwargs.get('agents'))
+            return original_create_log_xml(*args, **kwargs)
+
+        self.controller.log_generator.create_log_xml = wrapped_create_log_xml
+
+        success, _ = self.controller._create_package_task(
+            source_path=self.source_dir,
+            output_path=self.output_dir,
+            package_name='filter-test',
+            metadata=self.metadata,
+        )
+
+        self.assertTrue(success)
+        self.assertEqual(len(captured_agents), 3)
+
+        sip_premis_agents = captured_agents[0]
+        sip_log_agents = captured_agents[1]
+        aip_log_agents = captured_agents[2]
+
+        self.assertEqual({a['agent_name'] for a in sip_premis_agents}, {'Both Agent', 'SIP Only Agent'})
+        self.assertEqual({a['agent_name'] for a in sip_log_agents}, {'Both Agent', 'SIP Only Agent'})
+        self.assertEqual({a['agent_name'] for a in aip_log_agents}, {'Both Agent', 'AIP Only Agent'})
+
+
 if __name__ == '__main__':
     unittest.main()
