@@ -6,6 +6,8 @@ Handles the main application window layout and user interactions.
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 import os
+import sys
+import subprocess
 from pathlib import Path
 
 from .widgets import ProgressFrame, LogFrame, MetadataForm, PremisForm
@@ -88,7 +90,7 @@ class MainWindow:
         tools_menu.add_command(label=labels.MENU_DESCRIBE_PACKAGE, command=self._describe_package)
         tools_menu.add_command(label=labels.MENU_VALIDATE_PACKAGE, command=self._validate_package)
         tools_menu.add_separator()
-        tools_menu.add_command(label=labels.MENU_SAVE_AS_DEFAULTS, command=self._save_as_defaults)
+        tools_menu.add_command(label=labels.MENU_OPEN_LOG_FOLDER, command=self._open_log_folder)
         
         # Help menu
         help_menu = tk.Menu(menubar, tearoff=0)
@@ -394,27 +396,6 @@ class MainWindow:
                 self.log_frame.log(f"Failed to save metadata: {e}", "ERROR")
                 messagebox.showerror("Error", f"Failed to save metadata:\n{e}")
                 
-    def _save_as_defaults(self):
-        """Save current metadata as default configuration."""
-        filepath = filedialog.asksaveasfilename(
-            title="Save Default Configuration",
-            defaultextension=".yml",
-            initialfile="dias_config.yml",
-            filetypes=[("YAML files", "*.yml *.yaml"), ("All files", "*.*")]
-        )
-        if filepath:
-            try:
-                metadata = self.metadata_form.get_metadata()
-                premis_data = self.premis_form.get_premis_data()
-                metadata.update(premis_data)
-                success = self.config_loader.save_defaults(metadata, filepath)
-                if success:
-                    self.log_frame.log(f"Default configuration saved to: {filepath}", "SUCCESS")
-                    messagebox.showinfo("Success", f"Configuration saved to:\n{filepath}")
-            except Exception as e:
-                self.log_frame.log(f"Failed to save configuration: {e}", "ERROR")
-                messagebox.showerror("Error", f"Failed to save configuration:\n{e}")
-    
     def _describe_package(self):
         """Open dialog to describe/inspect an existing DIAS package."""
         from ..dias_package_creator.package_inspector import DIASPackageInspector
@@ -631,6 +612,21 @@ class MainWindow:
         # Run validation after dialog is shown
         dialog.after(100, run_validation)
     
+    def _open_log_folder(self):
+        """Open the log folder in the system file explorer."""
+        log_dir = config.get_log_directory()
+        log_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            if sys.platform == 'win32':
+                subprocess.Popen(['explorer', str(log_dir)])
+            elif sys.platform == 'darwin':
+                subprocess.Popen(['open', str(log_dir)])
+            else:
+                subprocess.Popen(['xdg-open', str(log_dir)])
+            self.log_frame.log(f"Opened log folder: {log_dir}", "INFO")
+        except Exception as e:
+            messagebox.showerror("Error", f"Could not open log folder:\n{log_dir}\n\n{e}")
+
     def _show_about(self):
         """Show the about dialog."""
         messagebox.showinfo(

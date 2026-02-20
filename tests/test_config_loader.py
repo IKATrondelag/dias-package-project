@@ -142,7 +142,7 @@ metadata:
             'creator_organization', 'producer_organization', 'producer_individual',
             'producer_software', 'submitter_organization', 'submitter_individual',
             'ipowner_organization', 'preservation_organization',
-            'submission_agreement', 'start_date', 'end_date'
+            'submission_agreement', 'related_aic_id', 'related_package_id', 'start_date', 'end_date'
         ]
         
         yaml_content = "metadata:\n"

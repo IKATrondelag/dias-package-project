@@ -9,7 +9,6 @@ The application now supports loading default metadata values and dropdown option
 - **Fallback**: If `dias_config.yml` doesn't exist, `dias_config.example.yml` is used
 - **Easy to edit**: Human-readable YAML format
 - **Custom dropdowns**: Define your own dropdown options for organizations, systems, etc.
-- **Save current values**: Save your current form values as defaults via the Tools menu
 
 ## Configuration File Locations
 The application looks for configuration files in the following locations (in order):
@@ -30,12 +29,7 @@ The application looks for configuration files in the following locations (in ord
 
 ### Creating a Configuration File
 
-1. **From the GUI**: 
-   - Fill in your desired default values in the form
-   - Go to Help → "Save Current as Defaults"
-   - Choose where to save the file (recommend `dias_config.yml` in the app directory)
-
-2. **Manual Creation**:
+1. **Manual Creation**:
    - Copy `dias_config.example.yml` to `dias_config.yml`
    - Edit the values as needed
 
@@ -51,29 +45,29 @@ metadata:
   record_status: 'NEW'
   
   # Archivist Information
-  archivist_organization: '5014 Frøya Kommune'
-  system_name: 'Visma Familia'
+  archivist_organization: 'IKA Landsdel'
+  system_name: 'Test System Omsorg'
   system_version: '1.0'
   system_format: 'SIARD'
   
   # Creator Information
-  creator_organization: 'IKA Trøndelag'
+  creator_organization: '1234 ABC Kommune'
   
   # Producer Information
-  producer_organization: 'Fosen IKT'
-  producer_individual: ''
-  producer_software: 'Full Convert Pro'
+  producer_organization: 'Kommune IKT'
+  producer_individual: 'IKT Ansatt'
+  producer_software: 'DBPTK Desktop'
   
   # Submitter Information
-  submitter_organization: '5011 Hemne Kommune'
+  submitter_organization: '1234 ABC Kommune'
   submitter_individual: ''
   
   # IP Owner & Preservation
-  ipowner_organization: '5045 Grong Kommune'
-  preservation_organization: 'KDRS'
+  ipowner_organization: '1234 ABC Kommune'
+  preservation_organization: 'Nasjonalarkivet'
   
   # Agreement & Date Range
-  submission_agreement: ''
+  submission_agreement: '26_345'
   start_date: '2000-01-01'
   end_date: '2024-12-31'
 
@@ -82,9 +76,9 @@ metadata:
 options:
   # Organizations - customize with your common municipalities
   archivist_organization:
-    - '5000 Trøndelag fylkeskommune'
-    - '5001 Trondheim kommune'
-    - '5014 Frøya kommune'
+    - 'IKA Øst'
+    - 'IKA Vest'
+    - 'IKA Nord'
     # ... add your organizations here
   
   creator_organization:
@@ -93,16 +87,16 @@ options:
     # ... add your IKA organizations here
   
   system_name:
-    - 'Visma Familia'
-    - 'Acos'
-    - 'ESA'
+    - 'System 1'
+    - 'System 2'
+    - 'System 3'
     # ... add your systems here
   
   producer_organization:
-    - 'Fosen IKT'
-    - 'KommIT'
-    - 'Evry'
-    - 'Visma'
+    - 'Kommune IKT'
+    - 'IKA Nord'
+    - 'Ekstern IKT'
+
 ```
 
 ## Available Configuration Fields

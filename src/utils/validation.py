@@ -365,6 +365,7 @@ class InputValidator:
         
         # Required fields
         required_fields = {
+            'package_type': 'Package Type',
             'label': 'Label/Title',
             'archivist_organization': 'Archivist Organization',
             'system_name': 'System/Software Name',
@@ -374,8 +375,30 @@ class InputValidator:
         
         for field, display_name in required_fields.items():
             value = metadata.get(field)
+            if field == 'package_type' and not value:
+                value = metadata.get('type')
             if not value or not str(value).strip():
                 result.add_error(f"{display_name} is required", field)
+
+        package_type = metadata.get('package_type') or metadata.get('type')
+        if package_type:
+            package_type = str(package_type).strip().upper()
+            valid_package_types = {'SIP', 'AIP', 'DIP', 'AIU', 'AIC'}
+            if package_type not in valid_package_types:
+                result.add_error(
+                    f"Package Type must be one of: {', '.join(sorted(valid_package_types))}",
+                    'package_type'
+                )
+
+        record_status = str(metadata.get('record_status', 'NEW')).strip().upper()
+        if record_status in {'SUPPLEMENT', 'REPLACEMENT'}:
+            related_aic_id = str(metadata.get('related_aic_id', '')).strip()
+            related_package_id = str(metadata.get('related_package_id', '')).strip()
+            if not related_aic_id and not related_package_id:
+                result.add_error(
+                    f"Related AIC UUID or Related Package UUID is required when Record Status is {record_status}",
+                    'related_reference'
+                )
                 
         # Validate dates if present
         date_fields = ['start_date', 'end_date', 'transfer_date']

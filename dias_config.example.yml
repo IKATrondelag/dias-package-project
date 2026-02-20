@@ -47,9 +47,7 @@ metadata:
 options:
   # Organizations - customize with your common municipalities/organizations
   archivist_organization:
-    - '9997 Kommune Eksempel A'
-    - '9998 Kommune Eksempel B'
-    - '9999 Kommune Eksempel C'
+    - 'Organisasjon Eksempel A'
   
   submitter_organization:
     - '9997 Kommune Eksempel A'
@@ -69,10 +67,9 @@ options:
   
   # Producer organizations
   producer_organization:
-    - 'Fosen IKT'
-    - 'KommIT'
-    - 'Evry'
-    - 'Visma'
+    - 'Produsent Eksempel A'
+    - 'Produsent Eksempel B'
+    - 'Produsent Eksempel C'
   
   # System names
   system_name:
@@ -114,15 +111,15 @@ premis:
       event_outcome: '0'
       event_outcome_detail: 'Checksum verified successfully'
       event_date: ''
-      include_sip: true
-      include_aip: true
+      include_sip: false
+      include_aip: false
     - event_type: 'Creation'
       event_detail: 'Package created'
       event_outcome: '0'
       event_outcome_detail: 'Successfully created package'
       event_date: ''
-      include_sip: true
-      include_aip: true
+      include_sip: false
+      include_aip: false
 
   # Default agents (people, organizations, or software involved)
   # Each agent can be included in SIP and/or AIP logs
@@ -132,13 +129,13 @@ premis:
       agent_id_type: 'NO/RA'
       agent_id_value: 'SIARD Washer'
       include_sip: false
-      include_aip: true
+      include_aip: false
     - agent_name: 'DIAS Package Creator'
       agent_type: 'software'
       agent_id_type: 'NO/RA'
       agent_id_value: 'DIAS-Package-Creator'
       include_sip: false
-      include_aip: true
+      include_aip: false
 
   # Dropdown options for PREMIS fields
   options:

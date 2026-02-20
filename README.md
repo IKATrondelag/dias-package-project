@@ -67,6 +67,14 @@ python -m PyInstaller --clean --noconfirm build_exe.spec
 - If you get `pyinstaller is not recognized`, use `python -m PyInstaller ...` as shown above.
 - If `python -m PyInstaller` fails, install dependency explicitly: `python -m pip install pyinstaller`.
 - Use the same Python interpreter for install and build commands.
+- **tkinter missing**: PyInstaller requires tkinter to be present in the Python installation used for the build. tkinter is *not* always bundled with Python by default:
+  - **Ubuntu/Debian**: `sudo apt-get install python3-tk`
+  - **Fedora/RHEL**: `sudo dnf install python3-tkinter`
+  - **macOS (Homebrew)**: `brew install python-tk` (version must match your Python, e.g. `python-tk@3.12`)
+  - **Windows**: Ensure "tcl/tk and IDLE" is checked in the Python installer (python.org). Re-run the installer and choose "Modify" if needed.
+  - **conda**: `conda install tk`
+  
+  Verify tkinter is available before building: `python -c "import tkinter; print('OK')"`
 
 #### Windows-specific Notes
 
@@ -85,6 +93,30 @@ python -m PyInstaller --clean --noconfirm build_exe.spec
 - Configuration follows XDG spec: `~/.config/dias_package_creator`
 - Legacy location `~/.dias_package_creator` is also supported
 - Logs are in `~/.dias_package_creator/logs` or `~/.local/share/dias_package_creator/logs`
+
+### CI/CD: Optional Windows EXE Build
+
+The repository includes an optional GitHub Actions workflow for Windows executable builds:
+
+- Workflow: `.github/workflows/windows-exe.yml`
+- Manual run: **Actions → "Windows EXE Build" → Run workflow**
+- Automatic run: when a GitHub **Release** is published
+- Output: artifact `dias-package-creator-windows` (zip file)
+
+For release publishing:
+
+- On `release: published`, the EXE zip is uploaded automatically to that release.
+- On manual runs, you can optionally upload to an existing release by setting:
+  - `upload_to_release = true`
+  - `release_tag = vX.Y.Z`
+
+Note about Docker:
+
+- GitHub-hosted runners cannot produce a Windows EXE inside a Linux Docker container.
+- This project uses a native `windows-latest` runner for Windows builds.
+- If you need Windows-container builds, use a self-hosted Windows runner with Docker.
+
+For a concise operational handoff (CI/CD, release flow, and what to keep minimal), see [HANDOFF.md](docs/HANDOFF.md).
 
 ## Cross-Platform Support
 
@@ -203,7 +235,7 @@ The application supports optional configuration files to pre-populate form field
 3. Edit the values to match your organization's defaults
 4. Start the application - fields will be pre-filled
 
-See [CONFIG_GUIDE.md](CONFIG_GUIDE.md) for detailed documentation.
+See [CONFIG_GUIDE.md](docs/CONFIG_GUIDE.md) for detailed documentation.
 
 ## Testing
 

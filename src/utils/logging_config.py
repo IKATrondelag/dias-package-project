@@ -4,10 +4,25 @@ Sets up file and console logging with appropriate levels.
 """
 
 import logging
+import logging.handlers
+import uuid
 from datetime import datetime
 from pathlib import Path
 
 from .env_config import config
+
+
+class CorrelationIdFilter(logging.Filter):
+    """
+    Injects a correlation ID into log records.
+    """
+    def __init__(self, name=''):
+        super().__init__(name)
+        self.correlation_id = str(uuid.uuid4())
+
+    def filter(self, record):
+        record.correlation_id = self.correlation_id
+        return True
 
 
 def setup_logging(log_dir=None, log_level=None):
@@ -42,12 +57,18 @@ def setup_logging(log_dir=None, log_level=None):
     # Remove existing handlers
     for handler in root_logger.handlers[:]:
         root_logger.removeHandler(handler)
+        
+    # Add correlation ID filter
+    correlation_filter = CorrelationIdFilter()
     
-    # File handler - detailed logging
-    file_handler = logging.FileHandler(log_file, encoding='utf-8')
+    # File handler - detailed logging with rotation (10 MB max, keep 5 backups)
+    file_handler = logging.handlers.RotatingFileHandler(
+        log_file, maxBytes=10*1024*1024, backupCount=5, encoding='utf-8'
+    )
     file_handler.setLevel(logging.DEBUG)
+    file_handler.addFilter(correlation_filter)
     file_formatter = logging.Formatter(
-        '%(asctime)s - %(name)s - %(levelname)s - %(funcName)s:%(lineno)d - %(message)s',
+        '%(asctime)s - %(name)s - %(levelname)s - [CorrID: %(correlation_id)s] - %(funcName)s:%(lineno)d - %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S'
     )
     file_handler.setFormatter(file_formatter)
@@ -56,8 +77,9 @@ def setup_logging(log_dir=None, log_level=None):
     # Console handler - less verbose
     console_handler = logging.StreamHandler()
     console_handler.setLevel(logging.INFO)
+    console_handler.addFilter(correlation_filter)
     console_formatter = logging.Formatter(
-        '%(levelname)s: %(message)s'
+        '%(levelname)s: [%(correlation_id)s] %(message)s'
     )
     console_handler.setFormatter(console_formatter)
     root_logger.addHandler(console_handler)
