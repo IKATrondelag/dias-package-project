@@ -592,7 +592,7 @@ class PackageController:
         file_patterns = [
             ('mets.xsd', 'mets.xsd'),
             ('log.xml', 'log.xml'),
-            ('administrative_metadata/DIAS_PREMIS.xsd', 'administrative_metadata/DIAS_PREMIS.xsd'),
+            ('administrative/DIAS_PREMIS.xsd', 'administrative/DIAS_PREMIS.xsd'),
         ]
         
         for pattern, rel_path in file_patterns:
