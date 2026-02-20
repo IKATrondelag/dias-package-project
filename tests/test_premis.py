@@ -227,14 +227,14 @@ class TestDIASLogGeneratorEventAndAgentsCombined(unittest.TestCase):
         self.assertEqual(len(agent_elems), 1)
 
     def test_auto_event_type_is_creation(self):
-        """Auto-generated event type should be 'Creation' (not '10000')."""
+        """Auto-generated event type should use DIAS integer code for Creation."""
         root = self.generator.create_log_xml(
             metadata=self.metadata, object_uuid='uuid-123',
         )
         events = self._find_elements(root, 'event')
         auto_event = events[0]
         event_type = [el for el in auto_event if el.tag.split('}')[-1] == 'eventType'][0]
-        self.assertEqual(event_type.text, 'Creation')
+        self.assertEqual(event_type.text, '10000')
 
 
 class TestConfigLoaderPremis(unittest.TestCase):

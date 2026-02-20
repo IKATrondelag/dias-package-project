@@ -207,6 +207,7 @@ class TestInputValidator(unittest.TestCase):
     def test_validate_metadata_valid(self):
         """Test validating valid metadata."""
         metadata = {
+            'package_type': 'SIP',
             'label': 'Test Package',
             'archivist_organization': 'Test Archive',
             'system_name': 'Test System',
@@ -229,6 +230,7 @@ class TestInputValidator(unittest.TestCase):
     def test_validate_metadata_invalid_date(self):
         """Test validating metadata with invalid date format."""
         metadata = {
+            'package_type': 'SIP',
             'label': 'Test Package',
             'archivist_organization': 'Test Archive',
             'system_name': 'Test System',
@@ -243,6 +245,7 @@ class TestInputValidator(unittest.TestCase):
     def test_validate_metadata_valid_date(self):
         """Test validating metadata with valid ISO date."""
         metadata = {
+            'package_type': 'SIP',
             'label': 'Test Package',
             'archivist_organization': 'Test Archive',
             'system_name': 'Test System',
@@ -256,6 +259,7 @@ class TestInputValidator(unittest.TestCase):
     def test_validate_all_comprehensive(self):
         """Test comprehensive validation of all inputs."""
         metadata = {
+            'package_type': 'SIP',
             'label': 'Test Package',
             'archivist_organization': 'Test Archive',
             'system_name': 'Test System',
@@ -274,6 +278,50 @@ class TestInputValidator(unittest.TestCase):
         self.assertGreater(len(result.info), 0)
         
         # Should be valid overall
+        self.assertTrue(result.is_valid())
+
+    def test_validate_metadata_invalid_package_type(self):
+        """Invalid package_type should produce an error."""
+        metadata = {
+            'package_type': 'INVALID',
+            'label': 'Test Package',
+            'archivist_organization': 'Test Archive',
+            'system_name': 'Test System',
+            'creator_organization': 'Test Creator',
+            'submission_agreement': 'AGR-001'
+        }
+        result = InputValidator.validate_metadata(metadata)
+        self.assertFalse(result.is_valid())
+        self.assertTrue(any('Package Type must be one of' in e.message for e in result.errors))
+
+    def test_validate_metadata_replacement_requires_relation_reference(self):
+        """Replacement must reference related AIC or package UUID."""
+        metadata = {
+            'package_type': 'SIP',
+            'label': 'Test Package',
+            'record_status': 'REPLACEMENT',
+            'archivist_organization': 'Test Archive',
+            'system_name': 'Test System',
+            'creator_organization': 'Test Creator',
+            'submission_agreement': 'AGR-001'
+        }
+        result = InputValidator.validate_metadata(metadata)
+        self.assertFalse(result.is_valid())
+        self.assertTrue(any('Related AIC UUID or Related Package UUID is required' in e.message for e in result.errors))
+
+    def test_validate_metadata_replacement_accepts_related_aic_id(self):
+        """Replacement should be valid when related_aic_id is provided."""
+        metadata = {
+            'package_type': 'SIP',
+            'label': 'Test Package',
+            'record_status': 'REPLACEMENT',
+            'archivist_organization': 'Test Archive',
+            'system_name': 'Test System',
+            'creator_organization': 'Test Creator',
+            'submission_agreement': 'AGR-001',
+            'related_aic_id': 'aic-123'
+        }
+        result = InputValidator.validate_metadata(metadata)
         self.assertTrue(result.is_valid())
 
 

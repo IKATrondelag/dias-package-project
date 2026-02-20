@@ -47,9 +47,7 @@ metadata:
 options:
   # Organizations - customize with your common municipalities/organizations
   archivist_organization:
-    - '9997 Kommune Eksempel A'
-    - '9998 Kommune Eksempel B'
-    - '9999 Kommune Eksempel C'
+    - 'Organisasjon Eksempel A'
   
   submitter_organization:
     - '9997 Kommune Eksempel A'
@@ -69,10 +67,9 @@ options:
   
   # Producer organizations
   producer_organization:
-    - 'Fosen IKT'
-    - 'KommIT'
-    - 'Evry'
-    - 'Visma'
+    - 'Produsent Eksempel A'
+    - 'Produsent Eksempel B'
+    - 'Produsent Eksempel C'
   
   # System names
   system_name:

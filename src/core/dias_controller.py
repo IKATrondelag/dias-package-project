@@ -107,6 +107,11 @@ class PackageController:
         """Update progress via callback if available."""
         if self._progress_callback:
             self._progress_callback(value, status)
+
+    def _check_cancelled(self) -> None:
+        """Raise InterruptedError if the current job has been cancelled."""
+        if self.job_manager.is_cancelled():
+            raise InterruptedError("Job was cancelled")
             
     def create_package(self, source_path: str, output_path: str, 
                        package_name: str, metadata: Dict[str, Any]) -> None:
@@ -119,6 +124,10 @@ class PackageController:
             package_name: Name for the package (used for label if not set).
             metadata: Package metadata dictionary.
         """
+        package_type = metadata.get('package_type') or metadata.get('type')
+        if package_type:
+            metadata['package_type'] = package_type
+
         # Use package name as label if label not set
         if not metadata.get('label'):
             metadata['label'] = package_name
@@ -565,20 +574,28 @@ class PackageController:
     
     def _copy_schema_files(self, sip_root: Path, admin_dir: Path) -> None:
         """Copy XSD schema files to the package."""
-        # Try to find schema files in the application directory
+        # Resolve schemas from bundled resources first (PyInstaller onefile/_MEIPASS),
+        # then fall back to executable/current directory for external overrides.
         schema_files = {
             'dias_mets.xsd': sip_root / 'mets.xsd',
             'dias_premis.xsd': admin_dir / 'DIAS_PREMIS.xsd'
         }
         
         for src_name, dest_path in schema_files.items():
-            src_path = self._base_path / src_name
-            if src_path.exists():
-                shutil.copy2(src_path, dest_path)
-                self._log(f"Copied schema: {dest_path.name}")
-            else:
-                # Create placeholder/minimal schema if not found
+            candidate_paths = [
+                get_resource_path(src_name),
+                self._base_path / src_name,
+                Path.cwd() / src_name,
+            ]
+
+            src_path = next((p for p in candidate_paths if p.exists()), None)
+            if src_path is None:
                 self._log(f"Schema not found: {src_name}, skipping", "WARNING")
+                self.logger.warning(f"Schema not found in any expected location: {src_name}")
+                continue
+
+            shutil.copy2(src_path, dest_path)
+            self._log(f"Copied schema: {dest_path.name}")
     
     def _gather_sip_files_info(self, sip_root: Path) -> List[Dict]:
         """Gather information about all files in the SIP for mets.xml."""
@@ -627,7 +644,7 @@ class PackageController:
                     })
         
         # Add descriptive metadata files
-        desc_dir = sip_root / 'descriptive'
+        desc_dir = sip_root / 'descriptive_metadata'
         if desc_dir.exists():
             for file_path in desc_dir.rglob('*'):
                 if file_path.is_file():

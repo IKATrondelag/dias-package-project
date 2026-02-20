@@ -51,29 +51,29 @@ metadata:
   record_status: 'NEW'
   
   # Archivist Information
-  archivist_organization: '5014 Frøya Kommune'
-  system_name: 'Visma Familia'
+  archivist_organization: 'IKA Landsdel'
+  system_name: 'Test System Omsorg'
   system_version: '1.0'
   system_format: 'SIARD'
   
   # Creator Information
-  creator_organization: 'IKA Trøndelag'
+  creator_organization: '1234 ABC Kommune'
   
   # Producer Information
-  producer_organization: 'Fosen IKT'
-  producer_individual: ''
-  producer_software: 'Full Convert Pro'
+  producer_organization: 'Kommune IKT'
+  producer_individual: 'IKT Ansatt'
+  producer_software: 'DBPTK Desktop'
   
   # Submitter Information
-  submitter_organization: '5011 Hemne Kommune'
+  submitter_organization: '1234 ABC Kommune'
   submitter_individual: ''
   
   # IP Owner & Preservation
-  ipowner_organization: '5045 Grong Kommune'
-  preservation_organization: 'KDRS'
+  ipowner_organization: '1234 ABC Kommune'
+  preservation_organization: 'Nasjonalarkivet'
   
   # Agreement & Date Range
-  submission_agreement: ''
+  submission_agreement: '26_345'
   start_date: '2000-01-01'
   end_date: '2024-12-31'
 
@@ -82,9 +82,9 @@ metadata:
 options:
   # Organizations - customize with your common municipalities
   archivist_organization:
-    - '5000 Trøndelag fylkeskommune'
-    - '5001 Trondheim kommune'
-    - '5014 Frøya kommune'
+    - 'IKA Øst'
+    - 'IKA Vest'
+    - 'IKA Nord'
     # ... add your organizations here
   
   creator_organization:
@@ -93,16 +93,16 @@ options:
     # ... add your IKA organizations here
   
   system_name:
-    - 'Visma Familia'
-    - 'Acos'
-    - 'ESA'
+    - 'System 1'
+    - 'System 2'
+    - 'System 3'
     # ... add your systems here
   
   producer_organization:
-    - 'Fosen IKT'
-    - 'KommIT'
-    - 'Evry'
-    - 'Visma'
+    - 'Kommune IKT'
+    - 'IKA Nord'
+    - 'Ekstern IKT'
+
 ```
 
 ## Available Configuration Fields
