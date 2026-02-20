@@ -279,9 +279,9 @@ class DIASPackageValidator:
                 if 'mets.xml' in found_files:
                     self._validate_mets_from_tar(tar, found_files['mets.xml'], result)
                 
-                # Check for administrative and content directories
+                # Check for expected SIP directories
                 dirs = {m.name for m in members if m.isdir()}
-                expected_dirs = ['administrative', 'content']
+                expected_dirs = ['administrative_metadata', 'descriptive_metadata', 'content']
                 for expected_dir in expected_dirs:
                     # Check if any path contains the expected directory
                     if not any(expected_dir in d for d in dirs):

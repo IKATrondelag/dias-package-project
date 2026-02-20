@@ -1,0 +1,111 @@
+name: Windows EXE Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      upload_to_release:
+        description: "Upload EXE zip to an existing GitHub Release"
+        required: false
+        default: false
+        type: boolean
+      release_tag:
+        description: "Release tag to upload to (e.g. v1.2.3). Required if upload_to_release is true"
+        required: false
+        type: string
+  release:
+    types: [published]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+env:
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  build-windows-exe:
+    name: 🪟 Build Windows EXE
+    runs-on: windows-latest
+    timeout-minutes: 35
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-windows-exe-${{ hashFiles('requirements.txt', 'build_exe.spec') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-windows-exe-
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Build executable
+        run: |
+          python -m PyInstaller --clean --noconfirm build_exe.spec
+
+      - name: Verify build output
+        shell: pwsh
+        run: |
+          Get-ChildItem dist/
+          if (-not (Test-Path "dist/dias-package-creator.exe")) {
+            throw "Expected dist/dias-package-creator.exe to exist"
+          }
+
+      - name: Package EXE as zip
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path release | Out-Null
+          Compress-Archive -Path dist/* -DestinationPath release/dias-package-creator-windows-amd64.zip -Force
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dias-package-creator-windows
+          path: release/dias-package-creator-windows-amd64.zip
+          retention-days: 30
+
+      - name: Upload to GitHub Release (published release event)
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.release.tag_name }}
+          files: release/dias-package-creator-windows-amd64.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Validate manual release upload inputs
+        if: github.event_name == 'workflow_dispatch' && inputs.upload_to_release
+        shell: pwsh
+        run: |
+          if ([string]::IsNullOrWhiteSpace("${{ inputs.release_tag }}")) {
+            throw "Input 'release_tag' is required when upload_to_release=true"
+          }
+
+      - name: Upload to GitHub Release (manual)
+        if: github.event_name == 'workflow_dispatch' && inputs.upload_to_release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.release_tag }}
+          files: release/dias-package-creator-windows-amd64.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+# Note:
+# GitHub-hosted runners cannot build a Windows EXE inside a Linux Docker container.
+# This workflow uses a native Windows runner (windows-latest), which is the supported approach.
+# If you specifically need Windows-container builds, use a self-hosted Windows runner with Docker configured.

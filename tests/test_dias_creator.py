@@ -26,6 +26,7 @@ class TestDIASMetsGenerator(unittest.TestCase):
     def setUp(self):
         self.generator = DIASMetsGenerator()
         self.sample_metadata = {
+            'package_type': 'SIP',
             'label': 'Test DIAS Package',
             'archivist_organization': 'Test Archive',
             'system_name': 'Test System',
@@ -94,6 +95,39 @@ class TestDIASMetsGenerator(unittest.TestCase):
             if os.path.exists(temp_path):
                 os.unlink(temp_path)
 
+    def test_mets_type_uses_package_type(self):
+        """METS TYPE should reflect selected package type."""
+        metadata = {**self.sample_metadata, 'package_type': 'AIP'}
+        mets = self.generator.create_mets_xml(
+            metadata=metadata,
+            sip_uuid='test-uuid-123',
+            files_info=self.sample_files
+        )
+        self.assertEqual(mets.get('TYPE'), 'AIP')
+
+    def test_mets_supplement_includes_relation_alt_record_ids(self):
+        """Supplement/replacement metadata should be reflected as relation altRecordIDs."""
+        metadata = {
+            **self.sample_metadata,
+            'record_status': 'SUPPLEMENT',
+            'related_aic_id': 'aic-abc',
+            'related_package_id': 'pkg-def'
+        }
+        mets = self.generator.create_mets_xml(
+            metadata=metadata,
+            sip_uuid='test-uuid-123',
+            files_info=self.sample_files
+        )
+        alt_record_ids = [
+            elem for elem in mets.iter()
+            if elem.tag.split('}')[-1] == 'altRecordID'
+        ]
+        alt_map = {elem.get('TYPE'): elem.text for elem in alt_record_ids}
+
+        self.assertEqual(alt_map.get('RELATEDAIC'), 'aic-abc')
+        self.assertEqual(alt_map.get('RELATEDPACKAGE'), 'pkg-def')
+        self.assertEqual(alt_map.get('RELATIONTYPE'), 'supplements')
+
 
 class TestDIASLogGenerator(unittest.TestCase):
     """Tests for Log (PREMIS) XML generation."""
@@ -127,6 +161,42 @@ class TestDIASLogGenerator(unittest.TestCase):
         objects = [child for child in log if child.tag.split('}')[-1] == 'object']
         self.assertGreater(len(objects), 0)
 
+    def test_log_replacement_includes_related_reference_properties(self):
+        """PREMIS should include relation properties for replacement/supplement records."""
+        metadata = {
+            **self.sample_metadata,
+            'record_status': 'REPLACEMENT',
+            'related_aic_id': 'aic-old',
+            'related_package_id': 'pkg-old'
+        }
+        log = self.generator.create_log_xml(
+            metadata=metadata,
+            object_uuid='uuid-123',
+            aic_uuid='aic-current'
+        )
+
+        sig_props = [
+            elem for elem in log.iter()
+            if elem.tag.split('}')[-1] == 'significantProperties'
+        ]
+        sig_map = {}
+        for sig in sig_props:
+            prop_type = None
+            prop_value = None
+            for child in sig:
+                local = child.tag.split('}')[-1]
+                if local == 'significantPropertiesType':
+                    prop_type = child.text
+                elif local == 'significantPropertiesValue':
+                    prop_value = child.text
+            if prop_type:
+                sig_map[prop_type] = prop_value
+
+        self.assertEqual(sig_map.get('record_status'), 'REPLACEMENT')
+        self.assertEqual(sig_map.get('relation_type'), 'replaces')
+        self.assertEqual(sig_map.get('related_aic_id'), 'aic-old')
+        self.assertEqual(sig_map.get('related_package_id'), 'pkg-old')
+
 
 class TestDIASInfoGenerator(unittest.TestCase):
     """Tests for Info XML generation."""
@@ -134,6 +204,7 @@ class TestDIASInfoGenerator(unittest.TestCase):
     def setUp(self):
         self.generator = DIASInfoGenerator()
         self.sample_metadata = {
+            'package_type': 'SIP',
             'label': 'Test Package',
             'archivist_organization': 'Test Archive',
             'system_name': 'Test System'
@@ -163,6 +234,16 @@ class TestDIASInfoGenerator(unittest.TestCase):
         
         sections = [child.tag.split('}')[-1] for child in info]
         self.assertIn('metsHdr', sections)
+
+    def test_info_type_uses_package_type(self):
+        """info.xml TYPE should reflect selected package type."""
+        metadata = {**self.sample_metadata, 'package_type': 'DIP'}
+        info = self.generator.create_info_xml(
+            metadata=metadata,
+            aip_uuid='aip-uuid-123',
+            aic_uuid='aic-uuid-123'
+        )
+        self.assertEqual(info.get('TYPE'), 'DIP')
 
 
 class TestFileProcessor(unittest.TestCase):
@@ -303,9 +384,34 @@ class TestMetadataHandler(unittest.TestCase):
         full_metadata = self.handler._convert_gui_metadata(gui_metadata)
         
         self.assertIn('agents', full_metadata)
+        self.assertEqual(full_metadata['package_type'], 'SIP')
         self.assertEqual(full_metadata['type'], 'SIP')
         # Metadata conversion creates agents from GUI fields
         self.assertGreater(len(full_metadata['agents']), 0)
+
+    def test_convert_gui_metadata_preserves_relation_fields(self):
+        """GUI relation fields should be mapped into metadata and altRecordIDs."""
+        gui_metadata = {
+            'package_type': 'SIP',
+            'label': 'Test Package',
+            'record_status': 'SUPPLEMENT',
+            'archivist_organization': 'Test Archive',
+            'system_name': 'Test System',
+            'creator_organization': 'Test Creator',
+            'submission_agreement': 'AGR-001',
+            'related_aic_id': 'aic-prev',
+            'related_package_id': 'pkg-prev'
+        }
+
+        full_metadata = self.handler._convert_gui_metadata(gui_metadata)
+
+        self.assertEqual(full_metadata['related_aic_id'], 'aic-prev')
+        self.assertEqual(full_metadata['related_package_id'], 'pkg-prev')
+        self.assertEqual(full_metadata['relation_type'], 'supplements')
+        alt_types = {entry['type'] for entry in full_metadata['alt_record_ids']}
+        self.assertIn('RELATEDAIC', alt_types)
+        self.assertIn('RELATEDPACKAGE', alt_types)
+        self.assertIn('RELATIONTYPE', alt_types)
 
 
 if __name__ == '__main__':

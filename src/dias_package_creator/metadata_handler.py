@@ -12,7 +12,7 @@ class MetadataHandler:
         # Submission description specific fields
         self.submission_fields = {
             'objid': 'Object ID',
-            'type': 'Package Type',
+            'package_type': 'Package Type',
             'profile': 'Profile',
             'label': 'Label',
             'record_status': 'Record Status'
@@ -77,7 +77,9 @@ class MetadataHandler:
             submission_data['objid'] = f"SUBMISSION_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
         
         # Package Type
-        submission_data['type'] = self._get_choice("Package Type", self.valid_package_types, "SIP")
+        selected_type = self._get_choice("Package Type", self.valid_package_types, "SIP")
+        submission_data['package_type'] = selected_type
+        submission_data['type'] = selected_type
         
         # Profile
         submission_data['profile'] = input("Profile (default: DIAS_SUBMISSION_DESCRIPTION): ").strip()
@@ -172,7 +174,9 @@ class MetadataHandler:
         
         # Get root attributes
         metadata['objid'] = mets_root.get('OBJID', f"SUBMISSION_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
-        metadata['type'] = mets_root.get('TYPE', 'SIP')
+        package_type = mets_root.get('TYPE', 'SIP')
+        metadata['package_type'] = package_type
+        metadata['type'] = package_type
         metadata['profile'] = mets_root.get('PROFILE', 'DIAS_SUBMISSION_DESCRIPTION')
         metadata['label'] = mets_root.get('LABEL', '')
         
@@ -202,10 +206,16 @@ class MetadataHandler:
             # Get altRecordIDs
             alt_records = []
             for alt_record in mets_hdr.findall('.//mets:altRecordID', ns):
-                alt_records.append({
-                    'type': alt_record.get('TYPE', ''),
-                    'value': alt_record.text or ''
-                })
+                alt_type = alt_record.get('TYPE', '')
+                alt_value = alt_record.text or ''
+                alt_records.append({'type': alt_type, 'value': alt_value})
+
+                if alt_type == 'RELATEDAIC':
+                    metadata['related_aic_id'] = alt_value
+                elif alt_type == 'RELATEDPACKAGE':
+                    metadata['related_package_id'] = alt_value
+                elif alt_type == 'RELATIONTYPE':
+                    metadata['relation_type'] = alt_value
             metadata['alt_record_ids'] = alt_records
             
             # Get metsDocumentID
@@ -232,6 +242,7 @@ class MetadataHandler:
         """Parse simple Dublin Core XML structure"""
         metadata = {
             'objid': f"SUBMISSION_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+            'package_type': 'SIP',
             'type': 'SIP',
             'profile': 'DIAS_SUBMISSION_DESCRIPTION',
             'record_status': 'NEW',
@@ -283,8 +294,9 @@ class MetadataHandler:
         # Ensure submission fields
         if not metadata.get('objid'):
             metadata['objid'] = f"SUBMISSION_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-        if not metadata.get('type'):
-            metadata['type'] = 'SIP'
+        package_type = metadata.get('package_type') or metadata.get('type') or 'SIP'
+        metadata['package_type'] = package_type
+        metadata['type'] = package_type
         if not metadata.get('profile'):
             metadata['profile'] = 'DIAS_SUBMISSION_DESCRIPTION'
         if not metadata.get('agents'):
@@ -293,6 +305,11 @@ class MetadataHandler:
         if not metadata.get('alt_record_ids'):
             logger.warning("No alt_record_ids found in metadata — submission agreement must be provided by user")
             metadata['alt_record_ids'] = []
+
+        if not metadata.get('related_aic_id'):
+            metadata['related_aic_id'] = ''
+        if not metadata.get('related_package_id'):
+            metadata['related_package_id'] = ''
     
     def save_metadata_template(self, output_path):
         """Save a submission description metadata template XML file"""
@@ -304,6 +321,7 @@ class MetadataHandler:
         # Sample submission data
         sample_data = {
             'objid': 'TEMPLATE_SUBMISSION_001',
+            'package_type': 'SIP',
             'type': 'SIP',
             'profile': 'DIAS_SUBMISSION_DESCRIPTION',
             'label': 'Template Submission Description',
@@ -415,8 +433,9 @@ class MetadataHandler:
         if not metadata.get('objid') or not metadata['objid'].strip():
             missing_required.append('objid')
         
-        if not metadata.get('type') or metadata['type'] not in self.valid_package_types:
-            missing_required.append('type (must be one of: ' + ', '.join(self.valid_package_types) + ')')
+        package_type = metadata.get('package_type') or metadata.get('type')
+        if not package_type or package_type not in self.valid_package_types:
+            missing_required.append('package_type (must be one of: ' + ', '.join(self.valid_package_types) + ')')
         
         # Check minimum agents (3 required)
         agents = metadata.get('agents', [])
@@ -457,7 +476,8 @@ class MetadataHandler:
         # Core submission info
         print("Core Submission Information:")
         print(f"  Object ID: {metadata.get('objid', 'Not set')}")
-        print(f"  Type: {metadata.get('type', 'Not set')}")
+        package_type = metadata.get('package_type') or metadata.get('type', 'Not set')
+        print(f"  Type: {package_type}")
         print(f"  Profile: {metadata.get('profile', 'Not set')}")
         print(f"  Label: {metadata.get('label', 'Not set')}")
         print(f"  Record Status: {metadata.get('record_status', 'Not set')}")
@@ -582,6 +602,10 @@ class MetadataHandler:
         """
         # Check if already in full format
         if 'descriptive_metadata' in metadata:
+            package_type = metadata.get('package_type') or metadata.get('type')
+            if package_type:
+                metadata['package_type'] = package_type
+                metadata['type'] = package_type
             return metadata
             
         # Build agents list based on new DIAS form fields
@@ -712,14 +736,46 @@ class MetadataHandler:
                 'type': 'ENDDATE',
                 'value': metadata['end_date']
             })
+
+        relation_type = metadata.get('relation_type', '')
+        record_status = metadata.get('record_status', 'NEW')
+        if not relation_type:
+            relation_type = {
+                'SUPPLEMENT': 'supplements',
+                'REPLACEMENT': 'replaces'
+            }.get(str(record_status).upper(), '')
+
+        if metadata.get('related_aic_id'):
+            alt_record_ids.append({
+                'type': 'RELATEDAIC',
+                'value': metadata['related_aic_id']
+            })
+
+        if metadata.get('related_package_id'):
+            alt_record_ids.append({
+                'type': 'RELATEDPACKAGE',
+                'value': metadata['related_package_id']
+            })
+
+        if relation_type:
+            alt_record_ids.append({
+                'type': 'RELATIONTYPE',
+                'value': relation_type
+            })
         
+        package_type = metadata.get('package_type') or metadata.get('type') or 'SIP'
+
         # Convert from GUI format
         full_metadata = {
             'objid': f"SUBMISSION_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
-            'type': metadata.get('package_type', 'SIP'),
+            'package_type': package_type,
+            'type': package_type,
             'profile': 'http://xml.ra.se/METS/RA_METS_eARD.xml',
             'label': metadata.get('label', ''),
             'record_status': metadata.get('record_status', 'NEW'),
+            'related_aic_id': metadata.get('related_aic_id', ''),
+            'related_package_id': metadata.get('related_package_id', ''),
+            'relation_type': relation_type,
             'agents': agents if agents else [
                 {'role': 'CREATOR', 'type': 'OTHER', 'othertype': 'SOFTWARE', 'name': 'DIAS Package Creator'}
             ],

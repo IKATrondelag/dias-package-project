@@ -107,6 +107,11 @@ class PackageController:
         """Update progress via callback if available."""
         if self._progress_callback:
             self._progress_callback(value, status)
+
+    def _check_cancelled(self) -> None:
+        """Raise InterruptedError if the current job has been cancelled."""
+        if self.job_manager.is_cancelled():
+            raise InterruptedError("Job was cancelled")
             
     def create_package(self, source_path: str, output_path: str, 
                        package_name: str, metadata: Dict[str, Any]) -> None:
@@ -119,6 +124,10 @@ class PackageController:
             package_name: Name for the package (used for label if not set).
             metadata: Package metadata dictionary.
         """
+        package_type = metadata.get('package_type') or metadata.get('type')
+        if package_type:
+            metadata['package_type'] = package_type
+
         # Use package name as label if label not set
         if not metadata.get('label'):
             metadata['label'] = package_name
@@ -627,7 +636,7 @@ class PackageController:
                     })
         
         # Add descriptive metadata files
-        desc_dir = sip_root / 'descriptive'
+        desc_dir = sip_root / 'descriptive_metadata'
         if desc_dir.exists():
             for file_path in desc_dir.rglob('*'):
                 if file_path.is_file():
