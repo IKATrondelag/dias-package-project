@@ -97,6 +97,7 @@ class TestControllerValidation(unittest.TestCase):
         os.makedirs(self.output_dir)
         
         self.valid_metadata = {
+            'package_type': 'SIP',
             'label': 'Test Package',
             'system_name': 'TestSystem',
             'system_type': 'Fagsystem',

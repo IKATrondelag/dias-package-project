@@ -86,6 +86,30 @@ python -m PyInstaller --clean --noconfirm build_exe.spec
 - Legacy location `~/.dias_package_creator` is also supported
 - Logs are in `~/.dias_package_creator/logs` or `~/.local/share/dias_package_creator/logs`
 
+### CI/CD: Optional Windows EXE Build
+
+The repository includes an optional GitHub Actions workflow for Windows executable builds:
+
+- Workflow: `.github/workflows/windows-exe.yml`
+- Manual run: **Actions → "Windows EXE Build" → Run workflow**
+- Automatic run: when a GitHub **Release** is published
+- Output: artifact `dias-package-creator-windows` (zip file)
+
+For release publishing:
+
+- On `release: published`, the EXE zip is uploaded automatically to that release.
+- On manual runs, you can optionally upload to an existing release by setting:
+  - `upload_to_release = true`
+  - `release_tag = vX.Y.Z`
+
+Note about Docker:
+
+- GitHub-hosted runners cannot produce a Windows EXE inside a Linux Docker container.
+- This project uses a native `windows-latest` runner for Windows builds.
+- If you need Windows-container builds, use a self-hosted Windows runner with Docker.
+
+For a concise operational handoff (CI/CD, release flow, and what to keep minimal), see [HANDOFF.md](HANDOFF.md).
+
 ## Cross-Platform Support
 
 The application is designed to run on all major platforms:

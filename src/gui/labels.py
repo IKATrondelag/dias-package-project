@@ -89,6 +89,8 @@ class Labels:
     LABEL_PRESERVATION_ORG = "Preservation Organization:"
     
     LABEL_SUBMISSION_AGREEMENT = "Submission Agreement ID*:"
+    LABEL_RELATED_AIC_ID = "Related AIC UUID:"
+    LABEL_RELATED_PACKAGE_ID = "Related Package UUID:"
     LABEL_START_DATE = "Content Start Date:"
     LABEL_END_DATE = "Content End Date:"
     
@@ -113,6 +115,7 @@ class Labels:
     FIELD_SYSTEM_NAME = "System/Software Name"
     FIELD_CREATOR_ORG = "Creator Organization"
     FIELD_SUBMISSION_AGREEMENT = "Submission Agreement ID"
+    FIELD_RELATED_REFERENCE = "Related AIC UUID or Related Package UUID"
     
     # PREMIS Form - Section Headers
     SECTION_PREMIS_EVENTS = "Preservation Events"
