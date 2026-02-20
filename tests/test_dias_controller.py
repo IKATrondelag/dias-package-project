@@ -97,6 +97,7 @@ class TestControllerValidation(unittest.TestCase):
         os.makedirs(self.output_dir)
         
         self.valid_metadata = {
+            'package_type': 'SIP',
             'label': 'Test Package',
             'system_name': 'TestSystem',
             'system_type': 'Fagsystem',
@@ -294,6 +295,67 @@ class TestControllerPremisAgentFiltering(unittest.TestCase):
         self.assertEqual({a['agent_name'] for a in sip_premis_agents}, {'Both Agent', 'SIP Only Agent'})
         self.assertEqual({a['agent_name'] for a in sip_log_agents}, {'Both Agent', 'SIP Only Agent'})
         self.assertEqual({a['agent_name'] for a in aip_log_agents}, {'Both Agent', 'AIP Only Agent'})
+
+
+class TestControllerReceipt(unittest.TestCase):
+    """Tests for package receipt generation after successful packaging."""
+
+    def setUp(self):
+        self.controller = PackageController()
+        self.temp_dir = tempfile.mkdtemp()
+        self.source_dir = os.path.join(self.temp_dir, 'source')
+        self.output_dir = os.path.join(self.temp_dir, 'output')
+        os.makedirs(self.source_dir)
+        os.makedirs(self.output_dir)
+
+        with open(os.path.join(self.source_dir, 'doc.txt'), 'w', encoding='utf-8') as f:
+            f.write('test content')
+
+        self.metadata = {
+            'package_type': 'SIP',
+            'label': 'Receipt Test Package',
+            'record_status': 'NEW',
+            'archivist_organization': 'Test Archive',
+            'system_name': 'Test System',
+            'creator_organization': 'Test Creator',
+            'submission_agreement': 'AGR-001',
+            'start_date': '2020-01-01',
+            'end_date': '2023-12-31',
+            'premis_events': [],
+            'premis_agents': [],
+        }
+
+    def tearDown(self):
+        shutil.rmtree(self.temp_dir)
+
+    def test_create_package_writes_receipt_in_package_directory(self):
+        """Successful package creation should write package_receipt.txt in AIC directory."""
+        success, message = self.controller._create_package_task(
+            source_path=self.source_dir,
+            output_path=self.output_dir,
+            package_name='receipt-test',
+            metadata=self.metadata,
+        )
+
+        self.assertTrue(success, msg=message)
+
+        created_dirs = [
+            os.path.join(self.output_dir, entry)
+            for entry in os.listdir(self.output_dir)
+            if os.path.isdir(os.path.join(self.output_dir, entry))
+        ]
+        self.assertEqual(len(created_dirs), 1)
+
+        receipt_path = os.path.join(created_dirs[0], 'package_receipt.txt')
+        self.assertTrue(os.path.exists(receipt_path))
+
+        with open(receipt_path, 'r', encoding='utf-8') as receipt_file:
+            content = receipt_file.read()
+
+        self.assertIn('DIAS Package Receipt', content)
+        self.assertIn('AIC UUID:', content)
+        self.assertIn('Tar checksum:', content)
+        self.assertIn('Metadata summary', content)
 
 
 if __name__ == '__main__':

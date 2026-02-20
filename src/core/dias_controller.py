@@ -4,6 +4,7 @@ Creates DIAS-compliant packages with the proper nested structure.
 """
 
 import logging
+import json
 import shutil
 import tarfile
 from datetime import datetime
@@ -107,6 +108,11 @@ class PackageController:
         """Update progress via callback if available."""
         if self._progress_callback:
             self._progress_callback(value, status)
+
+    def _check_cancelled(self) -> None:
+        """Raise InterruptedError if the current job has been cancelled."""
+        if self.job_manager.is_cancelled():
+            raise InterruptedError("Job was cancelled")
             
     def create_package(self, source_path: str, output_path: str, 
                        package_name: str, metadata: Dict[str, Any]) -> None:
@@ -119,6 +125,10 @@ class PackageController:
             package_name: Name for the package (used for label if not set).
             metadata: Package metadata dictionary.
         """
+        package_type = metadata.get('package_type') or metadata.get('type')
+        if package_type:
+            metadata['package_type'] = package_type
+
         # Use package name as label if label not set
         if not metadata.get('label'):
             metadata['label'] = package_name
@@ -160,6 +170,7 @@ class PackageController:
             Tuple of (success: bool, message: str)
         """
         aic_dir = None  # Track for cleanup on failure
+        started_at = datetime.now().astimezone()
         
         try:
             self.logger.info("="*60)
@@ -350,6 +361,23 @@ class PackageController:
             self._log(f"Package created at: {aic_dir}", "SUCCESS")
             total_size_mb = tar_file_info['size'] / (1024*1024)
             self._log(f"Total archive size: {total_size_mb:.2f} MB", "INFO")
+
+            receipt_path = self._write_package_receipt(
+                aic_dir=aic_dir,
+                source_path=source_path,
+                output_path=output_path,
+                package_name=package_name,
+                metadata=metadata,
+                aic_uuid=aic_uuid,
+                aip_uuid=aip_uuid,
+                sip_uuid=sip_uuid,
+                files_info=files_info,
+                tar_file_info=tar_file_info,
+                started_at=started_at,
+                completed_at=datetime.now().astimezone()
+            )
+            if receipt_path:
+                self._log(f"Created: {receipt_path.relative_to(aic_dir)}")
             
             return (True, f"DIAS package created successfully at:\n{aic_dir}\nArchive size: {total_size_mb:.2f} MB")
             
@@ -358,6 +386,85 @@ class PackageController:
             import traceback
             self._log(traceback.format_exc(), "DEBUG")
             return (False, f"Package creation failed: {e}")
+
+    def _write_package_receipt(
+        self,
+        aic_dir: Path,
+        source_path: str,
+        output_path: str,
+        package_name: str,
+        metadata: Dict[str, Any],
+        aic_uuid: str,
+        aip_uuid: str,
+        sip_uuid: str,
+        files_info: List[Dict[str, Any]],
+        tar_file_info: Dict[str, Any],
+        started_at: datetime,
+        completed_at: datetime,
+    ) -> Optional[Path]:
+        """Create a detailed package receipt in the created package directory."""
+        receipt_path = aic_dir / "package_receipt.txt"
+        try:
+            source_file_count = len(files_info)
+            source_total_size = sum(int(file_info.get('size', 0)) for file_info in files_info)
+            duration_seconds = max((completed_at - started_at).total_seconds(), 0.0)
+
+            summary = {
+                "package_type": metadata.get('package_type') or metadata.get('type') or 'SIP',
+                "record_status": metadata.get('record_status', 'NEW'),
+                "label": metadata.get('label', ''),
+                "submission_agreement": metadata.get('submission_agreement', ''),
+                "creator_organization": metadata.get('creator_organization', ''),
+                "archivist_organization": metadata.get('archivist_organization', ''),
+            }
+
+            content_lines = [
+                "DIAS Package Receipt",
+                "=" * 72,
+                "",
+                "Process",
+                "-" * 72,
+                f"Started at: {started_at.isoformat()}",
+                f"Completed at: {completed_at.isoformat()}",
+                f"Duration (seconds): {duration_seconds:.2f}",
+                f"Source path: {source_path}",
+                f"Output root: {output_path}",
+                f"Package name: {package_name}",
+                "",
+                "Package identifiers",
+                "-" * 72,
+                f"AIC UUID: {aic_uuid}",
+                f"AIP UUID: {aip_uuid}",
+                f"SIP UUID: {sip_uuid}",
+                f"Package directory: {aic_dir}",
+                "",
+                "Data summary",
+                "-" * 72,
+                f"Source files processed: {source_file_count}",
+                f"Source total size (bytes): {source_total_size}",
+                f"Tar file path (package relative): {tar_file_info.get('path', '')}",
+                f"Tar file name: {tar_file_info.get('name', '')}",
+                f"Tar file size (bytes): {tar_file_info.get('size', 0)}",
+                f"Tar checksum type: SHA-256",
+                f"Tar checksum: {tar_file_info.get('checksum', '')}",
+                "",
+                "Metadata summary",
+                "-" * 72,
+                json.dumps(summary, ensure_ascii=False, indent=2),
+                "",
+                "Notes",
+                "-" * 72,
+                "This receipt is generated automatically by DIAS Package Creator.",
+            ]
+
+            with open(receipt_path, 'w', encoding='utf-8') as receipt_file:
+                receipt_file.write("\n".join(content_lines) + "\n")
+
+            return receipt_path
+        except Exception as e:
+            self._log(f"Warning: could not create package receipt: {e}", "WARNING")
+            self.logger.warning(f"Failed to write package receipt at {receipt_path}: {e}")
+            return None
     
     def _create_directory_structure(self, aic_dir: Path, aip_dir: Path, sip_uuid: str) -> None:
         """Create the full DIAS directory structure."""
@@ -565,20 +672,28 @@ class PackageController:
     
     def _copy_schema_files(self, sip_root: Path, admin_dir: Path) -> None:
         """Copy XSD schema files to the package."""
-        # Try to find schema files in the application directory
+        # Resolve schemas from bundled resources first (PyInstaller onefile/_MEIPASS),
+        # then fall back to executable/current directory for external overrides.
         schema_files = {
             'dias_mets.xsd': sip_root / 'mets.xsd',
             'dias_premis.xsd': admin_dir / 'DIAS_PREMIS.xsd'
         }
         
         for src_name, dest_path in schema_files.items():
-            src_path = self._base_path / src_name
-            if src_path.exists():
-                shutil.copy2(src_path, dest_path)
-                self._log(f"Copied schema: {dest_path.name}")
-            else:
-                # Create placeholder/minimal schema if not found
+            candidate_paths = [
+                get_resource_path(src_name),
+                self._base_path / src_name,
+                Path.cwd() / src_name,
+            ]
+
+            src_path = next((p for p in candidate_paths if p.exists()), None)
+            if src_path is None:
                 self._log(f"Schema not found: {src_name}, skipping", "WARNING")
+                self.logger.warning(f"Schema not found in any expected location: {src_name}")
+                continue
+
+            shutil.copy2(src_path, dest_path)
+            self._log(f"Copied schema: {dest_path.name}")
     
     def _gather_sip_files_info(self, sip_root: Path) -> List[Dict]:
         """Gather information about all files in the SIP for mets.xml."""
@@ -627,7 +742,7 @@ class PackageController:
                     })
         
         # Add descriptive metadata files
-        desc_dir = sip_root / 'descriptive'
+        desc_dir = sip_root / 'descriptive_metadata'
         if desc_dir.exists():
             for file_path in desc_dir.rglob('*'):
                 if file_path.is_file():

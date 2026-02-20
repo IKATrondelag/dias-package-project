@@ -68,7 +68,7 @@ class ConfigLoader:
                        'creator_organization', 'producer_organization', 'producer_individual', 
                        'producer_software', 'submitter_organization', 'submitter_individual',
                        'ipowner_organization', 'preservation_organization',
-                       'submission_agreement', 'start_date', 'end_date']:
+                       'submission_agreement', 'related_aic_id', 'related_package_id', 'start_date', 'end_date']:
                 if key in metadata:
                     defaults[key] = metadata[key]
             
@@ -159,27 +159,3 @@ class ConfigLoader:
         
         return None
     
-    def save_defaults(self, metadata: Dict[str, Any], output_path: str = 'dias_config.yml'):
-        """
-        Save current metadata as defaults to a YAML file.
-        
-        Args:
-            metadata: Metadata dictionary to save.
-            output_path: Path to save the config file.
-        """
-        try:
-            config_data = {
-                'metadata': metadata,
-                'version': '1.0',
-                'description': 'DIAS Package Creator default metadata configuration'
-            }
-            
-            with open(output_path, 'w', encoding='utf-8') as f:
-                yaml.dump(config_data, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
-                
-            logger.info(f"Configuration saved to: {output_path}")
-            return True
-            
-        except Exception as e:
-            logger.error(f"Error saving configuration: {e}")
-            return False

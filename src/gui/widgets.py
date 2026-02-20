@@ -206,19 +206,6 @@ class MetadataForm(ttk.Frame):
             lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
         )
         
-        # Bind mousewheel scrolling only when cursor is over the canvas
-        def _on_mousewheel(event):
-            canvas.yview_scroll(int(-1*(event.delta/120)), "units")
-        
-        def _bind_mousewheel(event):
-            canvas.bind_all("<MouseWheel>", _on_mousewheel)
-        
-        def _unbind_mousewheel(event):
-            canvas.unbind_all("<MouseWheel>")
-        
-        canvas.bind("<Enter>", _bind_mousewheel)
-        canvas.bind("<Leave>", _unbind_mousewheel)
-        
         canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
         canvas.configure(yscrollcommand=scrollbar.set)
         
@@ -258,10 +245,10 @@ class MetadataForm(ttk.Frame):
         # Producer Information Section
         row = self._add_section_header(row, labels.SECTION_PRODUCER_INFO)
         row = self._add_editable_combo(row, "producer_organization", labels.LABEL_PRODUCER_ORG, 
-                                       self.config_defaults.get('producer_organization_options', ["Fosen IKT", "KommIT", "Evry", "Visma"]))
+                                       self.config_defaults.get('producer_organization_options', []))
         row = self._add_entry(row, "producer_individual", labels.LABEL_PRODUCER_INDIVIDUAL, "")
         row = self._add_editable_combo(row, "producer_software", labels.LABEL_PRODUCER_SOFTWARE, 
-                                       self.config_defaults.get('producer_software_options', ["Full Convert Pro", "Noark 5 Standard", "Custom Export"]))
+                                       self.config_defaults.get('producer_software_options', []))
         
         # Submitter Information Section
         row = self._add_section_header(row, labels.SECTION_SUBMITTER_INFO)
@@ -274,12 +261,14 @@ class MetadataForm(ttk.Frame):
         row = self._add_editable_combo(row, "ipowner_organization", labels.LABEL_IPOWNER_ORG, 
                                        self.config_defaults.get('ipowner_organization_options', config.DEFAULT_ARCHIVIST_ORGANIZATIONS))
         row = self._add_editable_combo(row, "preservation_organization", labels.LABEL_PRESERVATION_ORG, 
-                                       self.config_defaults.get('preservation_organization_options', ["KDRS", "Arkivverket"]), 
+                                       self.config_defaults.get('preservation_organization_options', []), 
                                        config.DEFAULT_PRESERVATION_ORGANIZATION)
         
         # Agreement and Date Information
         row = self._add_section_header(row, labels.SECTION_AGREEMENT_DATE)
         row = self._add_entry(row, "submission_agreement", labels.LABEL_SUBMISSION_AGREEMENT, "")
+        row = self._add_entry(row, "related_aic_id", labels.LABEL_RELATED_AIC_ID, "")
+        row = self._add_entry(row, "related_package_id", labels.LABEL_RELATED_PACKAGE_ID, "")
         row = self._add_date_field(row, "start_date", labels.LABEL_START_DATE)
         row = self._add_date_field(row, "end_date", labels.LABEL_END_DATE)
         
@@ -419,6 +408,13 @@ class MetadataForm(ttk.Frame):
             value = self._get_field_value(field)
             if not value or not value.strip():
                 errors.append(f"{name} is required")
+
+        record_status = (self._get_field_value('record_status') or '').strip().upper()
+        if record_status in {'SUPPLEMENT', 'REPLACEMENT'}:
+            related_aic_id = self._get_field_value('related_aic_id').strip()
+            related_package_id = self._get_field_value('related_package_id').strip()
+            if not related_aic_id and not related_package_id:
+                errors.append(f"{labels.FIELD_RELATED_REFERENCE} is required for {record_status}")
                 
         return errors
         
@@ -456,6 +452,9 @@ class MetadataForm(ttk.Frame):
             metadata: Dictionary of metadata values.
                      Can include special '_options' keys for dropdown values.
         """
+        if 'type' in metadata and 'package_type' not in metadata:
+            metadata = {**metadata, 'package_type': metadata.get('type')}
+
         for field_name, value in metadata.items():
             # Skip special option keys
             if field_name.endswith('_options'):
@@ -554,19 +553,6 @@ class PremisForm(ttk.Frame):
             "<Configure>",
             lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
         )
-        
-        # Bind mousewheel scrolling only when cursor is over the canvas
-        def _on_mousewheel(event):
-            canvas.yview_scroll(int(-1*(event.delta/120)), "units")
-        
-        def _bind_mousewheel(event):
-            canvas.bind_all("<MouseWheel>", _on_mousewheel)
-        
-        def _unbind_mousewheel(event):
-            canvas.unbind_all("<MouseWheel>")
-        
-        canvas.bind("<Enter>", _bind_mousewheel)
-        canvas.bind("<Leave>", _unbind_mousewheel)
         
         canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
         canvas.configure(yscrollcommand=scrollbar.set)

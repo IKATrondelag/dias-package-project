@@ -8,6 +8,13 @@ on:
   pull_request:
     branches: [ main, develop ]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 env:
   PYTHON_VERSION: '3.11'
   MIN_COVERAGE: 25
@@ -19,6 +26,7 @@ jobs:
   lint:
     name: 🔍 Code Quality
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -58,6 +66,7 @@ jobs:
   security:
     name: 🔒 Security Scan
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -87,6 +96,7 @@ jobs:
   test:
     name: 🧪 Test Py${{ matrix.python-version }} / ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -147,7 +157,9 @@ jobs:
   build:
     name: 📦 Build ${{ matrix.os }}
     needs: [lint, test]
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     strategy:
       matrix:
         include:
@@ -213,6 +225,7 @@ jobs:
     needs: [build]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: write
     
@@ -263,6 +276,7 @@ jobs:
   docs:
     name: 📚 Documentation
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
