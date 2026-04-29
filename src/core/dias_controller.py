@@ -249,13 +249,13 @@ class PackageController:
             self._update_progress(40, "Copying schema files...")
             self._copy_schema_files(sip_root, sip_admin_dir)
             
-            # Extract PREMIS events and agents from metadata
+            # Extract PREMIS events and agents flagged for inclusion in the SIP-level
+            # premis.xml. The log.xml files (SIP and AIP) are system-generated records
+            # and intentionally do not carry user-defined preservation data.
             all_premis_events = metadata.get('premis_events', [])
             all_premis_agents = metadata.get('premis_agents', [])
             sip_events = [e for e in all_premis_events if e.get('include_sip', True)]
-            aip_events = [e for e in all_premis_events if e.get('include_aip', True)]
             sip_agents = [a for a in all_premis_agents if a.get('include_sip', True)]
-            aip_agents = [a for a in all_premis_agents if a.get('include_aip', True)]
             
             # Step 3: Generate SIP-level premis.xml (45-55%)
             self._update_progress(45, "Generating SIP premis.xml...")
@@ -280,6 +280,8 @@ class PackageController:
             }
             
             # Step 4: Generate SIP-level log.xml (55-60%)
+            # User-defined PREMIS events/agents go only into premis.xml above;
+            # log.xml is a system-generated record and must not duplicate them.
             self._update_progress(55, "Generating SIP log.xml...")
             sip_log_path = sip_root / "log.xml"
             sip_log_xml = self.log_generator.create_log_xml(
@@ -288,8 +290,8 @@ class PackageController:
                 aic_uuid=None,
                 files_info=None,
                 is_sip_level=True,
-                user_events=sip_events,
-                agents=sip_agents
+                user_events=None,
+                agents=None
             )
             self.log_generator.save(sip_log_xml, str(sip_log_path))
             self._log(f"Created: {sip_log_path.relative_to(aic_dir)}")
@@ -330,6 +332,8 @@ class PackageController:
             self.logger.debug("Performed garbage collection")
             
             # Step 7: Generate AIP-level log.xml (80-85%)
+            # User-defined PREMIS events/agents go only into premis.xml;
+            # log.xml is a system-generated record and must not duplicate them.
             self._update_progress(80, "Generating AIP log.xml...")
             aip_log_path = aip_dir / "log.xml"
             aip_log_xml = self.log_generator.create_log_xml(
@@ -338,8 +342,8 @@ class PackageController:
                 aic_uuid=aic_uuid,
                 files_info=None,
                 is_sip_level=False,
-                user_events=aip_events,
-                agents=aip_agents
+                user_events=None,
+                agents=None
             )
             self.log_generator.save(aip_log_xml, str(aip_log_path))
             self._log(f"Created: {aip_log_path.relative_to(aic_dir)}")

@@ -268,7 +268,7 @@ class TestControllerPremisAgentFiltering(unittest.TestCase):
         shutil.rmtree(self.temp_dir)
 
     def test_agents_filtered_between_sip_and_aip_logs(self):
-        """SIP logs and AIP log should receive different agent sets by include flags."""
+        """User-defined agents go only into premis.xml; log.xml files receive no user agents."""
         captured_agents = []
         original_create_log_xml = self.controller.log_generator.create_log_xml
 
@@ -286,15 +286,18 @@ class TestControllerPremisAgentFiltering(unittest.TestCase):
         )
 
         self.assertTrue(success)
+        # create_log_xml is called three times: premis.xml, SIP log.xml, AIP log.xml
         self.assertEqual(len(captured_agents), 3)
 
         sip_premis_agents = captured_agents[0]
         sip_log_agents = captured_agents[1]
         aip_log_agents = captured_agents[2]
 
+        # User agents belong only in premis.xml, filtered by include_sip
         self.assertEqual({a['agent_name'] for a in sip_premis_agents}, {'Both Agent', 'SIP Only Agent'})
-        self.assertEqual({a['agent_name'] for a in sip_log_agents}, {'Both Agent', 'SIP Only Agent'})
-        self.assertEqual({a['agent_name'] for a in aip_log_agents}, {'Both Agent', 'AIP Only Agent'})
+        # log.xml files must not carry user-defined agents
+        self.assertIsNone(sip_log_agents)
+        self.assertIsNone(aip_log_agents)
 
 
 class TestControllerReceipt(unittest.TestCase):
