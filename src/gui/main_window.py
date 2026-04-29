@@ -229,8 +229,18 @@ class MainWindow:
         if folderpath:
             self.dest_var.set(folderpath)
             
-    def _validate(self):
-        """Validate the current input before package creation."""
+    def _validate(self, show_success_popup=True):
+        """Validate the current input before package creation.
+
+        Args:
+            show_success_popup: When True (default) an info dialog is shown on
+                success, matching the standalone Validate button behaviour.
+                Pass False when calling from _create_package so the caller can
+                handle the user interaction instead.
+
+        Returns:
+            ValidationResult when valid, None when invalid.
+        """
         self.log_frame.clear()
         self.log_frame.log(labels.VALIDATION_STARTING, "INFO")
         
@@ -274,23 +284,44 @@ class MainWindow:
                 labels.VALIDATION_FAILED_TITLE, 
                 labels.VALIDATION_FAILED_MSG.format(count=len(error_messages), errors=errors_text)
             )
-            return False
+            return None
         else:
-            # Validation passed
-            message = labels.VALIDATION_SUCCESS_MSG
-            if validation_result.has_warnings():
-                warning_count = len(validation_result.warnings)
-                message += f"\n\nNote: {warning_count} warning(s) found. Check the log for details."
-                
             self.log_frame.log("Validation passed!", "SUCCESS")
-            messagebox.showinfo(labels.VALIDATION_SUCCESS_TITLE, message)
-            return True
+            if show_success_popup:
+                message = labels.VALIDATION_SUCCESS_MSG
+                if validation_result.has_warnings():
+                    warning_count = len(validation_result.warnings)
+                    message += f"\n\nNote: {warning_count} warning(s) found. Check the log for details."
+                messagebox.showinfo(labels.VALIDATION_SUCCESS_TITLE, message)
+            return validation_result
             
     def _create_package(self):
         """Start the package creation process."""
-        if not self._validate():
+        validation_result = self._validate(show_success_popup=False)
+        if validation_result is None:
             return
-            
+
+        # If there are warnings, ask the user whether to continue or fix them
+        if validation_result.has_warnings():
+            warning_messages = validation_result.get_warning_messages()
+            warnings_text = "\n".join(f"\u2022 {w}" for w in warning_messages[:5])
+            if len(warning_messages) > 5:
+                warnings_text += f"\n... and {len(warning_messages) - 5} more"
+            proceed = messagebox.askyesno(
+                labels.VALIDATION_WARNINGS_TITLE,
+                labels.VALIDATION_WARNINGS_MSG.format(
+                    count=len(warning_messages),
+                    warnings=warnings_text
+                ),
+                icon=messagebox.WARNING
+            )
+            if not proceed:
+                self.log_frame.log(
+                    "Package creation cancelled. Please review the warnings and correct the issues.",
+                    "INFO"
+                )
+                return
+
         # Gather all inputs
         source = self.source_var.get()
         dest = self.dest_var.get()

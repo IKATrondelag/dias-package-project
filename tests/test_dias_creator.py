@@ -95,15 +95,17 @@ class TestDIASMetsGenerator(unittest.TestCase):
             if os.path.exists(temp_path):
                 os.unlink(temp_path)
 
-    def test_mets_type_uses_package_type(self):
-        """METS TYPE should reflect selected package type."""
-        metadata = {**self.sample_metadata, 'package_type': 'AIP'}
-        mets = self.generator.create_mets_xml(
-            metadata=metadata,
-            sip_uuid='test-uuid-123',
-            files_info=self.sample_files
-        )
-        self.assertEqual(mets.get('TYPE'), 'AIP')
+    def test_mets_type_is_always_sip(self):
+        """mets.xml TYPE must always be SIP — it is the inner SIP-level descriptor."""
+        for pkg_type in ('SIP', 'AIP', 'DIP'):
+            metadata = {**self.sample_metadata, 'package_type': pkg_type}
+            mets = self.generator.create_mets_xml(
+                metadata=metadata,
+                sip_uuid='test-uuid-123',
+                files_info=self.sample_files
+            )
+            self.assertEqual(mets.get('TYPE'), 'SIP',
+                             f"mets.xml TYPE should be SIP regardless of metadata package_type={pkg_type}")
 
     def test_mets_supplement_includes_relation_alt_record_ids(self):
         """Supplement/replacement metadata should be reflected as relation altRecordIDs."""
@@ -235,15 +237,17 @@ class TestDIASInfoGenerator(unittest.TestCase):
         sections = [child.tag.split('}')[-1] for child in info]
         self.assertIn('metsHdr', sections)
 
-    def test_info_type_uses_package_type(self):
-        """info.xml TYPE should reflect selected package type."""
-        metadata = {**self.sample_metadata, 'package_type': 'DIP'}
-        info = self.generator.create_info_xml(
-            metadata=metadata,
-            aip_uuid='aip-uuid-123',
-            aic_uuid='aic-uuid-123'
-        )
-        self.assertEqual(info.get('TYPE'), 'DIP')
+    def test_info_type_is_always_aip(self):
+        """info.xml TYPE must always be AIP — it is the outer AIP-level descriptor."""
+        for pkg_type in ('SIP', 'AIP', 'DIP'):
+            metadata = {**self.sample_metadata, 'package_type': pkg_type}
+            info = self.generator.create_info_xml(
+                metadata=metadata,
+                aip_uuid='aip-uuid-123',
+                aic_uuid='aic-uuid-123'
+            )
+            self.assertEqual(info.get('TYPE'), 'AIP',
+                             f"info.xml TYPE should be AIP regardless of metadata package_type={pkg_type}")
 
 
 class TestFileProcessor(unittest.TestCase):

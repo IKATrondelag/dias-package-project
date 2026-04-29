@@ -101,7 +101,15 @@ class Labels:
     VALIDATION_FAILED_MSG = "Found {count} error(s):\n\n{errors}"
     VALIDATION_SUCCESS_TITLE = "Validation Successful"
     VALIDATION_SUCCESS_MSG = "All inputs are valid. Ready to create package."
-    
+    VALIDATION_WARNINGS_TITLE = "Warnings Found"
+    VALIDATION_WARNINGS_MSG = (
+        "{count} warning(s) were found:\n\n{warnings}\n\n"
+        "Do you want to continue and create the package anyway, "
+        "or cancel to fix the issues first?"
+    )
+    VALIDATION_WARNINGS_CONTINUE = "Continue"
+    VALIDATION_WARNINGS_CANCEL = "Cancel"
+
     # File dialogs
     DIALOG_SELECT_SOURCE_FILE = "Select Source File"
     DIALOG_SELECT_SOURCE_FOLDER = "Select Source Folder"

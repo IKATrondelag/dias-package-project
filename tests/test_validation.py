@@ -324,6 +324,57 @@ class TestInputValidator(unittest.TestCase):
         result = InputValidator.validate_metadata(metadata)
         self.assertTrue(result.is_valid())
 
+    def test_validate_paths_distinct_same_path(self):
+        """Same source and output path should produce an error."""
+        result = InputValidator.validate_paths_distinct(
+            str(self.test_dir), str(self.test_dir)
+        )
+        self.assertFalse(result.is_valid())
+        self.assertTrue(any("same directory" in e.message for e in result.errors))
+
+    def test_validate_paths_distinct_output_inside_source(self):
+        """Output path inside source directory should produce an error."""
+        result = InputValidator.validate_paths_distinct(
+            str(self.test_dir), str(self.test_subdir)
+        )
+        self.assertFalse(result.is_valid())
+        self.assertTrue(any("inside the source directory" in e.message for e in result.errors))
+
+    def test_validate_paths_distinct_different_paths(self):
+        """Distinct, non-overlapping paths should be valid."""
+        other_dir = tempfile.mkdtemp()
+        try:
+            result = InputValidator.validate_paths_distinct(
+                str(self.test_subdir), str(other_dir)
+            )
+            self.assertTrue(result.is_valid())
+        finally:
+            shutil.rmtree(other_dir)
+
+    def test_validate_paths_distinct_empty_inputs(self):
+        """Empty inputs should return valid (caught by other validators)."""
+        result = InputValidator.validate_paths_distinct("", "")
+        self.assertTrue(result.is_valid())
+
+    def test_validate_all_blocks_same_source_and_output(self):
+        """validate_all should fail when source and output are the same directory."""
+        metadata = {
+            'package_type': 'SIP',
+            'label': 'Test Package',
+            'archivist_organization': 'Test Archive',
+            'system_name': 'Test System',
+            'creator_organization': 'Test Creator',
+            'submission_agreement': 'AGR-001'
+        }
+        result = InputValidator.validate_all(
+            source_path=str(self.test_dir),
+            output_path=str(self.test_dir),
+            package_name="test_package",
+            metadata=metadata
+        )
+        self.assertFalse(result.is_valid())
+        self.assertTrue(any("same directory" in e.message for e in result.errors))
+
 
 if __name__ == '__main__':
     unittest.main()
