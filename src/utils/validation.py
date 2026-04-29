@@ -425,6 +425,56 @@ class InputValidator:
             return False
         
     @staticmethod
+    def validate_paths_distinct(source_path: str, output_path: str) -> ValidationResult:
+        """
+        Validate that source and output paths do not overlap.
+
+        Prevents packaging files into the same directory they originate from,
+        which would cause files to be included twice in the package.
+
+        Args:
+            source_path: Path to source file or directory.
+            output_path: Path to output directory.
+
+        Returns:
+            ValidationResult with any errors.
+        """
+        result = ValidationResult()
+
+        if not source_path or not output_path:
+            return result
+
+        try:
+            src = Path(source_path).resolve()
+            out = Path(output_path).resolve()
+        except (OSError, ValueError):
+            return result
+
+        if src == out:
+            result.add_error(
+                "Source and output paths must be different. "
+                "Using the same directory for both would cause files to be packaged twice.",
+                "output_path"
+            )
+            return result
+
+        # Check if output is inside the source directory (source is a dir).
+        # If the output folder lives within the source, the package being written
+        # will be picked up as source content and included twice.
+        try:
+            out.relative_to(src)
+            result.add_error(
+                f"Output path must not be inside the source directory. "
+                f"'{out}' is located within '{src}', which would cause the output "
+                f"package to be included in the source files being packaged.",
+                "output_path"
+            )
+        except ValueError:
+            pass  # Not a subdirectory — that's fine
+
+        return result
+
+    @staticmethod
     def validate_all(source_path: str, output_path: str, package_name: str, 
                      metadata: Dict) -> ValidationResult:
         """
@@ -452,9 +502,15 @@ class InputValidator:
         combined.errors.extend(output_result.errors)
         combined.warnings.extend(output_result.warnings)
         combined.info.extend(output_result.info)
+
+        # Validate that source and output paths do not overlap
+        paths_result = InputValidator.validate_paths_distinct(source_path, output_path)
+        combined.errors.extend(paths_result.errors)
+        combined.warnings.extend(paths_result.warnings)
+        combined.info.extend(paths_result.info)
         
         # Validate disk space (only if source and output are valid)
-        if source_result.is_valid() and output_result.is_valid():
+        if source_result.is_valid() and output_result.is_valid() and paths_result.is_valid():
             space_result = InputValidator.validate_disk_space(source_path, output_path)
             combined.errors.extend(space_result.errors)
             combined.warnings.extend(space_result.warnings)
