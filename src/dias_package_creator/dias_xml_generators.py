@@ -115,7 +115,7 @@ class DIASInfoGenerator:
         root.set(f"{{{xsi_ns}}}schemaLocation", config.METS_INFO_SCHEMA_LOCATION)
         root.set("PROFILE", config.METS_PROFILE)
         root.set("LABEL", metadata.get('label', ''))
-        root.set("TYPE", resolve_package_type(metadata))
+        root.set("TYPE", "AIP")
         root.set("ID", f"ID{generate_uuid()}")
         root.set("OBJID", f"UUID:{aip_uuid}")
         
@@ -342,7 +342,7 @@ class DIASMetsGenerator:
         root.set(f"{{{xsi_ns}}}schemaLocation", config.METS_SIP_SCHEMA_LOCATION)
         root.set("PROFILE", config.METS_PROFILE)
         root.set("LABEL", metadata.get('label', ''))
-        root.set("TYPE", resolve_package_type(metadata))
+        root.set("TYPE", "SIP")
         root.set("ID", f"ID{generate_uuid()}")
         root.set("OBJID", f"UUID:{sip_uuid}")
         
@@ -621,7 +621,7 @@ class DIASLogGenerator:
         root.set("version", config.PREMIS_VERSION)
         
         # Create main object element
-        self._create_object(root, metadata, object_uuid, aic_uuid, premis_ns, xsi_ns)
+        self._create_object(root, metadata, object_uuid, aic_uuid, premis_ns, xsi_ns, is_sip_level)
         
         # Create file objects if this is SIP-level premis.xml
         if is_sip_level and files_info:
@@ -643,7 +643,7 @@ class DIASLogGenerator:
         
         return root
     
-    def _create_object(self, root, metadata, object_uuid, aic_uuid, premis_ns, xsi_ns):
+    def _create_object(self, root, metadata, object_uuid, aic_uuid, premis_ns, xsi_ns, is_sip_level=True):
         """Create the main PREMIS object element."""
         obj = ET.SubElement(root, f"{{{premis_ns}}}object")
         obj.set(f"{{{xsi_ns}}}type", "premis:file")
@@ -666,7 +666,7 @@ class DIASLogGenerator:
         self._add_significant_property(obj, premis_ns, "archivist_organization", 
                                        metadata.get('archivist_organization', ''))
         self._add_significant_property(obj, premis_ns, "label", metadata.get('label', ''))
-        self._add_significant_property(obj, premis_ns, "iptype", resolve_package_type(metadata))
+        self._add_significant_property(obj, premis_ns, "iptype", "SIP" if is_sip_level else "AIP")
 
         relation_type = resolve_record_relation_type(metadata)
         record_status = str(metadata.get('record_status', 'NEW')).strip().upper()
